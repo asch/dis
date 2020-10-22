@@ -1,0 +1,22 @@
+[ioctl]
+extents   = 128
+ctl       = ""
+writeNo   = 3222299650
+readNo    = 3222299651
+resolveNo = 1075864580
+
+[cache]
+base  = 0
+bound = 0
+file  = ""
+
+[backend]
+enabled = "s3"
+
+    [backend.file]
+    file = "store.raw"
+
+    [backend.s3]
+    bucket = "dis"
+    region = "us-east-1"
+    remote = "http://192.168.122.1:9000"
