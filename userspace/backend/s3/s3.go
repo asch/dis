@@ -7,6 +7,7 @@ import (
 	"dis/extent"
 	"dis/parser"
 	"strconv"
+	"sync"
 )
 
 const (
@@ -47,7 +48,7 @@ const maxObjSize = 1024 * 1024 * 128
 
 func (this *S3Backend) Write(extents *[]extent.Extent) {
 	key++
-	done := make(chan struct{}, len(*extents))
+	var reads sync.WaitGroup
 	buf := make([]byte, 0, maxObjSize)
 
 	writelist := []*s3map.S3extent{}
@@ -63,27 +64,27 @@ func (this *S3Backend) Write(extents *[]extent.Extent) {
 			Len: e.Len,
 			Key: key})
 
+		reads.Add(1)
 		go func() {
 			cache.Read(&slice, e.PBA*512)
-			done <- struct{}{}
+			reads.Done()
 		}()
 		blocks += e.Len
 	}
 
-	for range *extents {
-		<-done
-	}
+	reads.Wait()
 
 	s3op.Upload(key, &buf)
 	s3m.Update(&writelist)
 }
 
 func (this *S3Backend) Read(extents *[]extent.Extent) {
-	done := make(chan struct{}, len(*extents))
+	var reads sync.WaitGroup
 
 	for i := range *extents {
 		e := &(*extents)[i]
 		cache.Reserve(e)
+		reads.Add(1)
 		go func() {
 			buf := make([]byte, e.Len*512)
 			for _, s3e := range *s3m.Find(e) {
@@ -98,11 +99,9 @@ func (this *S3Backend) Read(extents *[]extent.Extent) {
 			}
 
 			cache.Write(&buf, e.PBA*512)
-			done <- struct{}{}
+			reads.Done()
 		}()
 	}
 
-	for range *extents {
-		<-done
-	}
+	reads.Wait()
 }

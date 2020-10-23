@@ -5,6 +5,7 @@ import (
 	"dis/extent"
 	"dis/parser"
 	"golang.org/x/sys/unix"
+	"sync"
 )
 
 const (
@@ -37,7 +38,7 @@ func (this *FileBackend) Init() {
 }
 
 func (this *FileBackend) Write(extents *[]extent.Extent) {
-	done := make(chan struct{}, len(*extents))
+	var reads sync.WaitGroup
 	bufs := make(map[*extent.Extent]*[]byte)
 
 	for i := range *extents {
@@ -45,15 +46,14 @@ func (this *FileBackend) Write(extents *[]extent.Extent) {
 		buf := make([]byte, e.Len*512)
 		bufs[e] = &buf
 
+		reads.Add(1)
 		go func() {
 			cache.Read(&buf, e.PBA*512)
-			done <- struct{}{}
+			reads.Done()
 		}()
 	}
 
-	for range *extents {
-		<-done
-	}
+	reads.Wait()
 
 	for i := range *extents {
 		e := &(*extents)[i]
@@ -63,22 +63,18 @@ func (this *FileBackend) Write(extents *[]extent.Extent) {
 			if err != nil {
 				panic(err)
 			}
-			//done <- struct{}{}
 		}()
 	}
-
-	//for range *extents {
-	//	<-done
-	//}
 }
 
 func (this *FileBackend) Read(extents *[]extent.Extent) {
-	done := make(chan struct{}, len(*extents))
+	var reads sync.WaitGroup
 
 	for i := range *extents {
 		e := &(*extents)[i]
 		cache.Reserve(e)
 
+		reads.Add(1)
 		go func() {
 			buf := make([]byte, e.Len*512)
 			_, err := unix.Pread(fd, buf, e.LBA*512)
@@ -86,12 +82,8 @@ func (this *FileBackend) Read(extents *[]extent.Extent) {
 				panic(err)
 			}
 			cache.Write(&buf, e.PBA*512)
-
-			done <- struct{}{}
+			reads.Done()
 		}()
 	}
-
-	for range *extents {
-		<-done
-	}
+	reads.Wait()
 }
