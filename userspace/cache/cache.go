@@ -3,7 +3,6 @@ package cache
 import (
 	"dis/extent"
 	"dis/parser"
-	"errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -31,7 +30,7 @@ func Init() {
 	file = v.GetString("file")
 
 	if Base == 0 || Bound == 0 || file == "" {
-		panic(errors.New(""))
+		panic("")
 	}
 	Frontier = Base
 

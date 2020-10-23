@@ -4,7 +4,6 @@ import (
 	"dis/cache"
 	"dis/extent"
 	"dis/parser"
-	"errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -27,7 +26,7 @@ func (this *FileBackend) Init() {
 	file = v.GetString("file")
 
 	if file == "" {
-		panic(errors.New(""))
+		panic("")
 	}
 
 	var err error

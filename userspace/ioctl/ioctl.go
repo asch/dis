@@ -3,7 +3,6 @@ package ioctl
 import (
 	"dis/extent"
 	"dis/parser"
-	"errors"
 	"golang.org/x/sys/unix"
 	"reflect"
 	"unsafe"
@@ -34,7 +33,7 @@ func Init() {
 	n = v.GetInt("extents")
 
 	if n == 0 || ctl == "" || writeNo == 0 || readNo == 0 || resolveNo == 0 {
-		panic(errors.New(""))
+		panic("")
 	}
 
 	var err error
