@@ -21,7 +21,7 @@ var (
 	remote string
 	s3op   *s3ops.S3session
 	s3m    *s3map.S3map
-	key    int64
+	workloads chan *[]extent.Extent
 )
 
 type S3Backend struct{}
@@ -42,40 +42,61 @@ func (this *S3Backend) Init() {
 
 	s3op = s3ops.New(&s3ops.Options{Bucket: bucket, Region: region, Remote: remote})
 	s3m = s3map.New()
+
+	workloads = make(chan *[]extent.Extent, 1024*1024*1024)
+	go this.writer()
 }
 
-const maxObjSize = 1024 * 1024 * 128
+const s3limit = 1024 * 1024 * 128
+
+func (this *S3Backend) writer() {
+	var reads sync.WaitGroup
+	var upload sync.Mutex
+
+	buf := make([]byte, 0, s3limit)
+	writelist := []*s3map.S3extent{}
+
+	var blocks int64
+	var key int64
+
+	for extents := range workloads {
+		for i := range *extents {
+			e := &(*extents)[i]
+			if (blocks+e.Len)*512 > s3limit {
+				upload.Lock()
+				reads.Wait()
+				go func(key int64, buf []byte, writelist []*s3map.S3extent) {
+					s3op.Upload(key, &buf)
+					s3m.Update(&writelist)
+					upload.Unlock()
+				}(key, buf, writelist)
+
+				buf = make([]byte, 0, s3limit)
+				writelist = []*s3map.S3extent{}
+				blocks = 0
+				key++
+			}
+			buf = buf[:(blocks+e.Len)*512]
+			slice := buf[blocks*512:]
+
+			writelist = append(writelist, &s3map.S3extent{
+				LBA: e.LBA,
+				PBA: blocks,
+				Len: e.Len,
+				Key: key})
+
+			blocks += e.Len
+			reads.Add(1)
+			go func() {
+				cache.Read(&slice, e.PBA*512)
+				reads.Done()
+			}()
+		}
+	}
+}
 
 func (this *S3Backend) Write(extents *[]extent.Extent) {
-	key++
-	var reads sync.WaitGroup
-	buf := make([]byte, 0, maxObjSize)
-
-	writelist := []*s3map.S3extent{}
-	var blocks int64
-	for i := range *extents {
-		e := &(*extents)[i]
-		buf = buf[:(blocks+e.Len)*512]
-		slice := buf[blocks*512:]
-
-		writelist = append(writelist, &s3map.S3extent{
-			LBA: e.LBA,
-			PBA: blocks,
-			Len: e.Len,
-			Key: key})
-
-		reads.Add(1)
-		go func() {
-			cache.Read(&slice, e.PBA*512)
-			reads.Done()
-		}()
-		blocks += e.Len
-	}
-
-	reads.Wait()
-
-	s3op.Upload(key, &buf)
-	s3m.Update(&writelist)
+	workloads <- extents
 }
 
 func (this *S3Backend) Read(extents *[]extent.Extent) {
