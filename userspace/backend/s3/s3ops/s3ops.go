@@ -2,11 +2,11 @@ package s3ops
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"strconv"
 )
 
 type Options struct {
@@ -30,10 +30,12 @@ func New(o *Options) *S3session {
 	return session
 }
 
+const keyFmt = "%08d"
+
 func (this *S3session) Upload(key int64, buf *[]byte) {
 	_, err := this.uploader.Upload(&s3manager.UploadInput{
 		Bucket: &this.options.Bucket,
-		Key:    aws.String(strconv.FormatInt(key, 10)),
+		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
 		Body:   bytes.NewReader(*buf),
 	})
 	if err != nil {
@@ -45,7 +47,7 @@ func (this *S3session) Download(key int64, buf *[]byte, rng *string) {
 	b := aws.NewWriteAtBuffer(*buf)
 	_, err := this.downloader.Download(b, &s3.GetObjectInput{
 		Bucket: &this.options.Bucket,
-		Key:    aws.String(strconv.FormatInt(key, 10)),
+		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
 		Range:  rng,
 	})
 	if err != nil {

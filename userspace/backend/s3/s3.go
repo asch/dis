@@ -6,7 +6,7 @@ import (
 	"dis/cache"
 	"dis/extent"
 	"dis/parser"
-	"strconv"
+	"fmt"
 	"sync"
 )
 
@@ -91,8 +91,8 @@ func (this *S3Backend) Read(extents *[]extent.Extent) {
 				if s3e.Key != -1 {
 					s := (s3e.LBA - e.LBA) * 512
 					slice := buf[s:]
-					from := strconv.FormatInt(s3e.PBA*512, 10)
-					to := strconv.FormatInt((s3e.PBA+s3e.Len)*512-1, 10)
+					from := fmt.Sprintf("%d", s3e.PBA*512)
+					to := fmt.Sprintf("%d", (s3e.PBA+s3e.Len)*512-1)
 					rng := "bytes=" + from + "-" + to
 					s3op.Download(s3e.Key, &slice, &rng)
 				}
