@@ -118,11 +118,9 @@ func (this *S3Backend) Read(extents *[]extent.Extent) {
 					s3op.Download(s3e.Key, &slice, &rng)
 				}
 			}
-
 			cache.Write(&buf, e.PBA*512)
 			reads.Done()
 		}()
 	}
-
 	reads.Wait()
 }
