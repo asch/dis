@@ -16,15 +16,17 @@ const (
 )
 
 var (
-	bucket string
-	region string
-	remote string
-	s3op   *s3ops.S3session
-	s3m    *s3map.S3map
+	bucket    string
+	region    string
+	remote    string
+	s3op      *s3ops.S3session
+	s3m       *s3map.S3map
 	workloads chan *[]extent.Extent
 )
 
 type S3Backend struct{}
+
+const workloadsBuf = 1024 * 1024 * 2
 
 func (this *S3Backend) Init() {
 	v := parser.Sub(configSection)
@@ -43,7 +45,7 @@ func (this *S3Backend) Init() {
 	s3op = s3ops.New(&s3ops.Options{Bucket: bucket, Region: region, Remote: remote})
 	s3m = s3map.New()
 
-	workloads = make(chan *[]extent.Extent, 1024*1024*1024)
+	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go this.writer()
 }
 
