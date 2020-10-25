@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -27,6 +28,12 @@ func New(o *Options) *S3session {
 	session := &S3session{options: o}
 	session.connect()
 	session.createBucket()
+
+	session.uploader.Concurrency = 32
+	s3manager.WithUploaderRequestOptions(request.Option(func(r *request.Request) {
+		r.HTTPRequest.Header.Add("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
+	}))(session.uploader)
+
 	return session
 }
 
