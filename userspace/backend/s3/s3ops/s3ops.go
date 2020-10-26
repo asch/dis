@@ -34,6 +34,8 @@ func New(o *Options) *S3session {
 		r.HTTPRequest.Header.Add("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 	}))(session.uploader)
 
+	session.downloader.Concurrency = 128
+
 	return session
 }
 
