@@ -9,6 +9,10 @@ func Read() {
 	var nextClean int64
 	for {
 		extents := RWIOCTL(readNo)
+		for i := range *extents {
+			e := &(*extents)[i]
+			cache.Reserve(e)
+		}
 		backend.Read(extents)
 
 		octant := 8 * (cache.Frontier - cache.Base) / (cache.Bound - cache.Base)

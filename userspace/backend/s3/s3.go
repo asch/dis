@@ -106,7 +106,6 @@ func (this *S3Backend) Read(extents *[]extent.Extent) {
 
 	for i := range *extents {
 		e := &(*extents)[i]
-		cache.Reserve(e)
 		reads.Add(1)
 		go func() {
 			buf := make([]byte, e.Len*512)
