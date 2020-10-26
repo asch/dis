@@ -104,9 +104,9 @@ func (this *S3Backend) Write(extents *[]extent.Extent) {
 func (this *S3Backend) Read(extents *[]extent.Extent) {
 	var reads sync.WaitGroup
 
+	reads.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
-		reads.Add(1)
 		go func() {
 			buf := make([]byte, e.Len*512)
 			for _, s3e := range *s3m.Find(e) {
