@@ -109,16 +109,22 @@ func (this *S3Backend) Read(extents *[]extent.Extent) {
 		e := &(*extents)[i]
 		go func() {
 			buf := make([]byte, e.Len*512)
+			var s3reads sync.WaitGroup
 			for _, s3e := range *s3m.Find(e) {
 				if s3e.Key != -1 {
-					s := (s3e.LBA - e.LBA) * 512
-					slice := buf[s:]
-					from := fmt.Sprintf("%d", s3e.PBA*512)
-					to := fmt.Sprintf("%d", (s3e.PBA+s3e.Len)*512-1)
-					rng := "bytes=" + from + "-" + to
-					s3op.Download(s3e.Key, &slice, &rng)
+					s3reads.Add(1)
+					go func(s3e *s3map.S3extent, e *extent.Extent) {
+						s := (s3e.LBA - e.LBA) * 512
+						slice := buf[s:]
+						from := fmt.Sprintf("%d", s3e.PBA*512)
+						to := fmt.Sprintf("%d", (s3e.PBA+s3e.Len)*512-1)
+						rng := "bytes=" + from + "-" + to
+						s3op.Download(s3e.Key, &slice, &rng)
+						s3reads.Done()
+					}(s3e, e)
 				}
 			}
+			s3reads.Wait()
 			cache.Write(&buf, e.PBA*512)
 			reads.Done()
 		}()
