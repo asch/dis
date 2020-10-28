@@ -7,7 +7,7 @@ import (
 	"dis/extent"
 	"dis/parser"
 	"fmt"
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru"
 	"sync"
 	"time"
 )
@@ -24,7 +24,7 @@ var (
 	s3op      *s3ops.S3session
 	s3m       *s3map.S3map
 	workloads chan *[]extent.Extent
-	lru       *simplelru.LRU
+	l2cache   *lru.TwoQueueCache
 )
 
 type S3Backend struct{}
@@ -49,7 +49,7 @@ func (this *S3Backend) Init() {
 	s3m = s3map.New()
 
 	var err error
-	lru, err = simplelru.NewLRU(200, nil)
+	l2cache, err = lru.New2Q(100)
 	if err != nil {
 		panic(err)
 	}
@@ -119,21 +119,21 @@ again:
 	from := s3e.PBA * 512
 	to := (s3e.PBA + s3e.Len) * 512
 
-	if obj, ok := lru.Get(s3e.Key); ok && obj != nil {
+	if obj, ok := l2cache.Get(s3e.Key); ok && obj != nil {
 		copy(*slice, (*obj.(*[]byte))[from:to])
 	} else if ok && obj == nil {
 		mutex.Unlock()
 		time.Sleep(100 * time.Microsecond)
 		goto again
 	} else {
-		lru.Add(s3e.Key, nil)
+		l2cache.Add(s3e.Key, nil)
 		mutex.Unlock()
 		buf := make([]byte, s3limit)
 		rng := "0-"
 		s3op.Download(s3e.Key, &buf, &rng)
 		copy(*slice, buf[from:to])
 		mutex.Lock()
-		lru.Add(s3e.Key, &buf)
+		l2cache.Add(s3e.Key, &buf)
 	}
 
 	mutex.Unlock()
