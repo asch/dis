@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 clean() {
-	sudo dmsetup remove -f s3a
+	sudo dmsetup remove --retry s3a
 	sudo rmmod dm_s3bd
 	sudo losetup -d $loop
 	sudo rm -f $cache_path $store_path
