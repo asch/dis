@@ -110,33 +110,24 @@ func (this *S3Backend) Write(extents *[]extent.Extent) {
 	workloads <- extents
 }
 
-var mutex sync.Mutex
-
 func cachedDownload(s3e *s3map.S3extent, slice *[]byte) {
-again:
-	mutex.Lock()
-
 	from := s3e.PBA * 512
 	to := (s3e.PBA + s3e.Len) * 512
 
+again:
 	if obj, ok := l2cache.Get(s3e.Key); ok && obj != nil {
 		copy(*slice, (*obj.(*[]byte))[from:to])
 	} else if ok && obj == nil {
-		mutex.Unlock()
 		time.Sleep(100 * time.Microsecond)
 		goto again
 	} else {
 		l2cache.Add(s3e.Key, nil)
-		mutex.Unlock()
 		buf := make([]byte, s3limit)
 		rng := "0-"
 		s3op.Download(s3e.Key, &buf, &rng)
 		copy(*slice, buf[from:to])
-		mutex.Lock()
 		l2cache.Add(s3e.Key, &buf)
 	}
-
-	mutex.Unlock()
 }
 
 func partDownload(s3e *s3map.S3extent, slice *[]byte) {
