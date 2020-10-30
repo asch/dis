@@ -123,7 +123,7 @@ again:
 	} else {
 		l2cache.Add(s3e.Key, nil)
 		buf := make([]byte, s3limit)
-		rng := "0-"
+		rng := "bytes=0-"
 		s3op.Download(s3e.Key, &buf, &rng)
 		copy(*slice, buf[from:to])
 		l2cache.Add(s3e.Key, &buf)
