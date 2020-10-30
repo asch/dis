@@ -76,9 +76,9 @@ func (this *S3Backend) writer() {
 			if (blocks+e.Len)*512 > s3limit {
 				upload.Lock()
 				reads.Wait()
+				s3m.Update(&writelist)
 				go func(key int64, buf []byte, writelist []*s3map.S3extent) {
 					s3op.Upload(key, &buf)
-					s3m.Update(&writelist)
 					upload.Unlock()
 				}(key, buf, writelist)
 
