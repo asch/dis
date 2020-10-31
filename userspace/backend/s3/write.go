@@ -10,37 +10,47 @@ import (
 const workloadsBuf = 1024 * 1024 * 2
 const s3limit = 1024 * 1024 * 32
 
-func r(sliceCH chan *[]byte, pbaCH chan int64, reads *sync.WaitGroup) {
-	for {
-		slice := <-sliceCH
-		pba := <-pbaCH
-		cache.Read(slice, pba*512)
+const (
+	uploadWorkers = 10
+	uploadBuf     = 10
+	readWorkers   = 10
+	readBuf       = 10
+)
+
+type uploadJob struct {
+	key int64
+	buf []byte
+}
+
+type readJob struct {
+	pba int64
+	buf *[]byte
+}
+
+func uploadWorker(jobs <-chan uploadJob) {
+	for job := range jobs {
+		s3op.Upload(job.key, &job.buf)
+	}
+}
+
+func readWorker(jobs <-chan readJob, reads *sync.WaitGroup) {
+	for job := range jobs {
+		cache.Read(job.buf, job.pba*512)
 		reads.Done()
 	}
 }
 
-func u(keyCH chan int64, bufCH chan []byte) {
-	for {
-		key := <-keyCH
-		buf := <-bufCH
-		s3op.Upload(key, &buf)
-	}
-}
-
 func (this *S3Backend) writer() {
-	sliceCH := make(chan *[]byte, 10)
-	pbaCH := make(chan int64, 10)
-
 	var reads sync.WaitGroup
 
-	for i := 0; i < 10; i++ {
-		go r(sliceCH, pbaCH, &reads)
+	readChan := make(chan readJob, readBuf)
+	for i := 0; i < readWorkers; i++ {
+		go readWorker(readChan, &reads)
 	}
 
-	keyCH := make(chan int64, 2)
-	bufCH := make(chan []byte, 2)
-	for i := 0; i < 3; i++ {
-		go u(keyCH, bufCH)
+	uploadChan := make(chan uploadJob, uploadBuf)
+	for i := 0; i < uploadWorkers; i++ {
+		go uploadWorker(uploadChan)
 	}
 
 	buf := make([]byte, 0, s3limit)
@@ -55,8 +65,7 @@ func (this *S3Backend) writer() {
 			if (blocks+e.Len)*512 > s3limit {
 				reads.Wait()
 				s3m.Update(&writelist)
-				keyCH <- key
-				bufCH <- buf
+				uploadChan <- uploadJob{key, buf}
 
 				buf = make([]byte, 0, s3limit)
 				writelist = []*s3map.S3extent{}
@@ -74,8 +83,7 @@ func (this *S3Backend) writer() {
 
 			blocks += e.Len
 			reads.Add(1)
-			sliceCH <- &slice
-			pbaCH <- e.PBA
+			readChan <- readJob{e.PBA, &slice}
 		}
 	}
 }
