@@ -18,34 +18,44 @@ const (
 )
 
 type uploadJob struct {
-	key int64
-	buf []byte
+	key   int64
+	buf   []byte
+	reads *sync.WaitGroup
 }
 
 type readJob struct {
-	pba int64
-	buf *[]byte
+	pba   int64
+	buf   *[]byte
+	reads *sync.WaitGroup
 }
 
 func uploadWorker(jobs <-chan uploadJob) {
 	for job := range jobs {
+		job.reads.Wait()
 		s3op.Upload(job.key, &job.buf)
 	}
 }
 
-func readWorker(jobs <-chan readJob, reads *sync.WaitGroup) {
+func readWorker(jobs <-chan readJob) {
 	for job := range jobs {
 		cache.Read(job.buf, job.pba*512)
-		reads.Done()
+		job.reads.Done()
 	}
 }
 
-func (this *S3Backend) writer() {
+func nextObject(key int64) (*[]byte, *[]*s3map.S3extent, int64, int64, *sync.WaitGroup) {
+	buf := make([]byte, 0, s3limit)
+	var writelist []*s3map.S3extent
+	var blocks int64
 	var reads sync.WaitGroup
 
+	return &buf, &writelist, blocks, key, &reads
+}
+
+func writer() {
 	readChan := make(chan readJob, readBuf)
 	for i := 0; i < readWorkers; i++ {
-		go readWorker(readChan, &reads)
+		go readWorker(readChan)
 	}
 
 	uploadChan := make(chan uploadJob, uploadBuf)
@@ -53,29 +63,19 @@ func (this *S3Backend) writer() {
 		go uploadWorker(uploadChan)
 	}
 
-	buf := make([]byte, 0, s3limit)
-	writelist := []*s3map.S3extent{}
-
-	var blocks int64
-	var key int64
-
+	buf, writelist, blocks, key, reads := nextObject(0)
 	for extents := range workloads {
 		for i := range *extents {
 			e := &(*extents)[i]
-			if (blocks+e.Len)*512 > s3limit {
-				reads.Wait()
-				s3m.Update(&writelist)
-				uploadChan <- uploadJob{key, buf}
-
-				buf = make([]byte, 0, s3limit)
-				writelist = []*s3map.S3extent{}
-				blocks = 0
-				key++
+			if (blocks+e.Len)*512 > s3limit && len(*writelist) > 0 {
+				s3m.Update(writelist)
+				uploadChan <- uploadJob{key, *buf, reads}
+				buf, writelist, blocks, key, reads = nextObject(key + 1)
 			}
-			buf = buf[:(blocks+e.Len)*512]
-			slice := buf[blocks*512:]
+			*buf = (*buf)[:(blocks+e.Len)*512]
+			slice := (*buf)[blocks*512:]
 
-			writelist = append(writelist, &s3map.S3extent{
+			*writelist = append(*writelist, &s3map.S3extent{
 				LBA: e.LBA,
 				PBA: blocks,
 				Len: e.Len,
@@ -83,7 +83,7 @@ func (this *S3Backend) writer() {
 
 			blocks += e.Len
 			reads.Add(1)
-			readChan <- readJob{e.PBA, &slice}
+			readChan <- readJob{e.PBA, &slice, reads}
 		}
 	}
 }

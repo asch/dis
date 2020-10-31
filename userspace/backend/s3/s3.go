@@ -49,5 +49,5 @@ func (this *S3Backend) Init() {
 	}
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
-	go this.writer()
+	go writer()
 }
