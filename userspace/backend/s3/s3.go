@@ -3,13 +3,9 @@ package s3
 import (
 	"dis/backend/s3/s3map"
 	"dis/backend/s3/s3ops"
-	"dis/cache"
 	"dis/extent"
 	"dis/parser"
-	"fmt"
 	"github.com/hashicorp/golang-lru"
-	"sync"
-	"time"
 )
 
 const (
@@ -28,8 +24,6 @@ var (
 )
 
 type S3Backend struct{}
-
-const workloadsBuf = 1024 * 1024 * 2
 
 func (this *S3Backend) Init() {
 	v := parser.Sub(configSection)
@@ -56,112 +50,4 @@ func (this *S3Backend) Init() {
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go this.writer()
-}
-
-const s3limit = 1024 * 1024 * 32
-
-func (this *S3Backend) writer() {
-	var reads sync.WaitGroup
-	var upload sync.Mutex
-
-	buf := make([]byte, 0, s3limit)
-	writelist := []*s3map.S3extent{}
-
-	var blocks int64
-	var key int64
-
-	for extents := range workloads {
-		for i := range *extents {
-			e := &(*extents)[i]
-			if (blocks+e.Len)*512 > s3limit {
-				upload.Lock()
-				reads.Wait()
-				s3m.Update(&writelist)
-				go func(key int64, buf []byte, writelist []*s3map.S3extent) {
-					s3op.Upload(key, &buf)
-					upload.Unlock()
-				}(key, buf, writelist)
-
-				buf = make([]byte, 0, s3limit)
-				writelist = []*s3map.S3extent{}
-				blocks = 0
-				key++
-			}
-			buf = buf[:(blocks+e.Len)*512]
-			slice := buf[blocks*512:]
-
-			writelist = append(writelist, &s3map.S3extent{
-				LBA: e.LBA,
-				PBA: blocks,
-				Len: e.Len,
-				Key: key})
-
-			blocks += e.Len
-			reads.Add(1)
-			go func() {
-				cache.Read(&slice, e.PBA*512)
-				reads.Done()
-			}()
-		}
-	}
-}
-
-func (this *S3Backend) Write(extents *[]extent.Extent) {
-	workloads <- extents
-}
-
-func cachedDownload(s3e *s3map.S3extent, slice *[]byte) {
-	from := s3e.PBA * 512
-	to := (s3e.PBA + s3e.Len) * 512
-
-again:
-	if obj, ok := l2cache.Get(s3e.Key); ok && obj != nil {
-		copy(*slice, (*obj.(*[]byte))[from:to])
-	} else if ok && obj == nil {
-		time.Sleep(100 * time.Microsecond)
-		goto again
-	} else {
-		l2cache.Add(s3e.Key, nil)
-		buf := make([]byte, s3limit)
-		rng := "bytes=0-"
-		s3op.Download(s3e.Key, &buf, &rng)
-		copy(*slice, buf[from:to])
-		l2cache.Add(s3e.Key, &buf)
-	}
-}
-
-func partDownload(s3e *s3map.S3extent, slice *[]byte) {
-	from := fmt.Sprintf("%d", s3e.PBA*512)
-	to := fmt.Sprintf("%d", (s3e.PBA+s3e.Len)*512-1)
-	rng := "bytes=" + from + "-" + to
-	s3op.Download(s3e.Key, slice, &rng)
-}
-
-func (this *S3Backend) Read(extents *[]extent.Extent) {
-	var reads sync.WaitGroup
-
-	reads.Add(len(*extents))
-	for i := range *extents {
-		e := &(*extents)[i]
-		go func() {
-			buf := make([]byte, e.Len*512)
-			var s3reads sync.WaitGroup
-			for _, s3e := range *s3m.Find(e) {
-				if s3e.Key != -1 {
-					s3reads.Add(1)
-					go func(s3e *s3map.S3extent, e *extent.Extent) {
-						s := (s3e.LBA - e.LBA) * 512
-						slice := buf[s:]
-						//partDownload(s3e, &slice)
-						cachedDownload(s3e, &slice)
-						s3reads.Done()
-					}(s3e, e)
-				}
-			}
-			s3reads.Wait()
-			cache.Write(&buf, e.PBA*512)
-			reads.Done()
-		}()
-	}
-	reads.Wait()
 }
