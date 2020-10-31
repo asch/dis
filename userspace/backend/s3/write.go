@@ -11,10 +11,10 @@ const workloadsBuf = 1024 * 1024 * 2
 const s3limit = 1024 * 1024 * 32
 
 const (
-	uploadWorkers = 10
-	uploadBuf     = 10
-	readWorkers   = 10
-	readBuf       = 10
+	uploadWorkers    = 10
+	uploadBuf        = 10
+	cacheReadWorkers = 10
+	cacheReadBuf     = 10
 )
 
 type uploadJob struct {
@@ -23,7 +23,7 @@ type uploadJob struct {
 	reads *sync.WaitGroup
 }
 
-type readJob struct {
+type cacheReadJob struct {
 	pba   int64
 	buf   *[]byte
 	reads *sync.WaitGroup
@@ -36,7 +36,7 @@ func uploadWorker(jobs <-chan uploadJob) {
 	}
 }
 
-func readWorker(jobs <-chan readJob) {
+func cacheReadWorker(jobs <-chan cacheReadJob) {
 	for job := range jobs {
 		cache.Read(job.buf, job.pba*512)
 		job.reads.Done()
@@ -53,9 +53,9 @@ func nextObject(key int64) (*[]byte, *[]*s3map.S3extent, int64, int64, *sync.Wai
 }
 
 func writer() {
-	readChan := make(chan readJob, readBuf)
-	for i := 0; i < readWorkers; i++ {
-		go readWorker(readChan)
+	cacheReadChan := make(chan cacheReadJob, cacheReadBuf)
+	for i := 0; i < cacheReadWorkers; i++ {
+		go cacheReadWorker(cacheReadChan)
 	}
 
 	uploadChan := make(chan uploadJob, uploadBuf)
@@ -83,7 +83,7 @@ func writer() {
 
 			blocks += e.Len
 			reads.Add(1)
-			readChan <- readJob{e.PBA, &slice, reads}
+			cacheReadChan <- cacheReadJob{e.PBA, &slice, reads}
 		}
 	}
 }

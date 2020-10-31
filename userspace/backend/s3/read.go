@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+const (
+	downloadWorkers   = 10
+	downloadBuf       = 10
+	cacheWriteWorkers = 10
+	cacheWriteBuf     = 10
+)
+
+var (
+	cacheWriteChan = make(chan cacheWriteJob, cacheWriteBuf)
+	downloadChan   = make(chan downloadJob, downloadBuf)
+)
+
 func cachedDownload(s3e *s3map.S3extent, slice *[]byte) {
 	from := s3e.PBA * 512
 	to := (s3e.PBA + s3e.Len) * 512
@@ -36,31 +48,50 @@ func partDownload(s3e *s3map.S3extent, slice *[]byte) {
 	s3op.Download(s3e.Key, slice, &rng)
 }
 
+type cacheWriteJob struct {
+	e     *extent.Extent
+	reads *sync.WaitGroup
+}
+
+type downloadJob struct {
+	s3e     *s3map.S3extent
+	buf     *[]byte
+	s3reads *sync.WaitGroup
+}
+
+func downloadWorker(jobs <-chan downloadJob) {
+	for job := range jobs {
+		cachedDownload(job.s3e, job.buf)
+		job.s3reads.Done()
+	}
+}
+
+func cacheWriteWorker(jobs <-chan cacheWriteJob) {
+	for job := range jobs {
+		buf := make([]byte, job.e.Len*512)
+		s3reads := new(sync.WaitGroup)
+		for _, s3e := range *s3m.Find(job.e) {
+			if s3e.Key == -1 {
+				continue
+			}
+			s := (s3e.LBA - job.e.LBA) * 512
+			slice := buf[s:]
+			s3reads.Add(1)
+			downloadChan <- downloadJob{s3e, &slice, s3reads}
+		}
+		s3reads.Wait()
+		cache.Write(&buf, job.e.PBA*512)
+		job.reads.Done()
+	}
+}
+
 func (this *S3Backend) Read(extents *[]extent.Extent) {
 	var reads sync.WaitGroup
 
 	reads.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
-		go func() {
-			buf := make([]byte, e.Len*512)
-			var s3reads sync.WaitGroup
-			for _, s3e := range *s3m.Find(e) {
-				if s3e.Key != -1 {
-					s3reads.Add(1)
-					go func(s3e *s3map.S3extent, e *extent.Extent) {
-						s := (s3e.LBA - e.LBA) * 512
-						slice := buf[s:]
-						//partDownload(s3e, &slice)
-						cachedDownload(s3e, &slice)
-						s3reads.Done()
-					}(s3e, e)
-				}
-			}
-			s3reads.Wait()
-			cache.Write(&buf, e.PBA*512)
-			reads.Done()
-		}()
+		cacheWriteChan <- cacheWriteJob{e, &reads}
 	}
 	reads.Wait()
 }

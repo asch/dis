@@ -50,4 +50,12 @@ func (this *S3Backend) Init() {
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go writer()
+
+	for i := 0; i < cacheWriteWorkers; i++ {
+		go cacheWriteWorker(cacheWriteChan)
+	}
+
+	for i := 0; i < downloadWorkers; i++ {
+		go downloadWorker(downloadChan)
+	}
 }
