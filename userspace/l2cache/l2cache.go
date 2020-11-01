@@ -10,12 +10,12 @@ const (
 )
 
 var (
-	cache *lru.ARCCache
+	cache *lru.Cache
 )
 
 func Init() {
 	var err error
-	cache, err = lru.NewARC(chunks)
+	cache, err = lru.New(chunks)
 	if err != nil {
 		panic(err)
 	}
