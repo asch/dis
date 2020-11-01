@@ -5,7 +5,6 @@ import (
 	"dis/backend/s3/s3ops"
 	"dis/extent"
 	"dis/parser"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -20,7 +19,6 @@ var (
 	s3op      *s3ops.S3session
 	s3m       *s3map.S3map
 	workloads chan *[]extent.Extent
-	l2cache   *lru.TwoQueueCache
 )
 
 type S3Backend struct{}
@@ -41,12 +39,6 @@ func (this *S3Backend) Init() {
 
 	s3op = s3ops.New(&s3ops.Options{Bucket: bucket, Region: region, Remote: remote})
 	s3m = s3map.New()
-
-	var err error
-	l2cache, err = lru.New2Q(100)
-	if err != nil {
-		panic(err)
-	}
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go writer()

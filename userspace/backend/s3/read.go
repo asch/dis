@@ -4,6 +4,7 @@ import (
 	"dis/backend/s3/s3map"
 	"dis/cache"
 	"dis/extent"
+	"dis/l2cache"
 	"fmt"
 	"sync"
 	"time"
@@ -20,26 +21,6 @@ var (
 	cacheWriteChan = make(chan cacheWriteJob, cacheWriteBuf)
 	downloadChan   = make(chan downloadJob, downloadBuf)
 )
-
-func cachedDownload(s3e *s3map.S3extent, slice *[]byte) {
-	from := s3e.PBA * 512
-	to := (s3e.PBA + s3e.Len) * 512
-
-again:
-	if obj, ok := l2cache.Get(s3e.Key); ok && obj != nil {
-		copy(*slice, (*obj.(*[]byte))[from:to])
-	} else if ok && obj == nil {
-		time.Sleep(100 * time.Microsecond)
-		goto again
-	} else {
-		l2cache.Add(s3e.Key, nil)
-		buf := make([]byte, s3limit)
-		rng := "bytes=0-"
-		s3op.Download(s3e.Key, &buf, &rng)
-		copy(*slice, buf[from:to])
-		l2cache.Add(s3e.Key, &buf)
-	}
-}
 
 func partDownload(s3e *s3map.S3extent, slice *[]byte) {
 	from := fmt.Sprintf("%d", s3e.PBA*512)
@@ -59,9 +40,58 @@ type downloadJob struct {
 	s3reads *sync.WaitGroup
 }
 
+func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg *sync.WaitGroup, key int64) {
+	id := func(key, chunk int64) int64 {
+		return key*1000 + chunk
+	}
+
+	oneChunk := func(i int64) *string {
+		from := fmt.Sprintf("%d", i*l2cache.ChunkSize)
+		to := fmt.Sprintf("%d", i*l2cache.ChunkSize + l2cache.ChunkSize - 1)
+		rng := "bytes=" + from + "-" + to
+		return &rng
+	}
+
+	cacheKey := id(key, chunkI)
+again:
+	chunk, ok := l2cache.GetChunk(cacheKey)
+	if !ok {
+		l2cache.PutChunk(cacheKey, nil)
+		buf := make([]byte, l2cache.ChunkSize)
+		s3op.Download(key, &buf, oneChunk(chunkI))
+		l2cache.PutChunk(cacheKey, &buf)
+		chunk = &buf
+	} else if chunk == nil {
+		time.Sleep(10 * time.Microsecond)
+		goto again
+	}
+	copy(slice, (*chunk)[chunkFrom:chunkTo])
+	wg.Done()
+}
+
 func downloadWorker(jobs <-chan downloadJob) {
 	for job := range jobs {
-		cachedDownload(job.s3e, job.buf)
+		first := job.s3e.PBA*512 / l2cache.ChunkSize
+		last := (job.s3e.PBA + job.s3e.Len - 1) * 512 / l2cache.ChunkSize
+		part := *job.buf
+		var waitChunks sync.WaitGroup
+		waitChunks.Add(int(last - first + 1))
+		for i := first; i <= last; i++ {
+			chunkFrom, chunkTo := int64(0), int64(l2cache.ChunkSize)
+			if i == first {
+				chunkFrom = job.s3e.PBA*512 % l2cache.ChunkSize
+			}
+
+			if i == last {
+				chunkTo = ((job.s3e.PBA + job.s3e.Len) * 512 - 1) % l2cache.ChunkSize + 1
+			}
+			go fillPartFromChunk(part, i, chunkTo, chunkFrom, &waitChunks, job.s3e.Key)
+
+			if i != last {
+				part = part[chunkTo-chunkFrom:]
+			}
+		}
+		waitChunks.Wait()
 		job.s3reads.Done()
 	}
 }
