@@ -10,6 +10,11 @@ base  = 0
 bound = 0
 file  = ""
 
+[l2cache]
+base  = 0
+bound = 0
+file  = ""
+
 [backend]
 enabled = "s3"
 

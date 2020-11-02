@@ -54,15 +54,14 @@ func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg 
 
 	cacheKey := id(key, chunkI)
 again:
-	chunk, ok := l2cache.GetChunk(cacheKey)
+	chunk, ok := l2cache.GetOrReserveChunk(cacheKey)
 	if !ok {
-		l2cache.PutChunk(cacheKey, nil)
 		buf := make([]byte, l2cache.ChunkSize)
 		s3op.Download(key, &buf, oneChunk(chunkI))
 		l2cache.PutChunk(cacheKey, &buf)
 		chunk = &buf
 	} else if chunk == nil {
-		time.Sleep(10 * time.Microsecond)
+		time.Sleep(100 * time.Microsecond)
 		goto again
 	}
 	copy(slice, (*chunk)[chunkFrom:chunkTo])
