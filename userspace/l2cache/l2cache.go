@@ -12,8 +12,6 @@ import (
 const (
 	configSection = "l2cache"
 	envPrefix     = "dis_l2cache"
-
-	ChunkSize = 1024 * 1024
 )
 
 var (
@@ -24,6 +22,7 @@ var (
 	fd int
 	chunks int64
 	freeChunk int64
+	ChunkSize int64
 )
 
 func Init() {
@@ -32,11 +31,13 @@ func Init() {
 	v.BindEnv("base")
 	v.BindEnv("bound")
 	v.BindEnv("file")
+	v.BindEnv("chunksize")
 	base = v.GetInt64("base")
 	bound = v.GetInt64("bound")
 	file = v.GetString("file")
+	ChunkSize = v.GetInt64("chunksize")
 
-	if bound == 0 || file == "" {
+	if ChunkSize == 0 || bound == 0 || file == "" {
 		panic("")
 	}
 

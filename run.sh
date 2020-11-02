@@ -43,6 +43,7 @@ export DIS_CACHE_FILE=$loop
 export DIS_L2CACHE_BASE=0
 export DIS_L2CACHE_BOUND=$l2cache_sectors
 export DIS_L2CACHE_FILE=$l2loop
+export DIS_L2CACHE_CHUNKSIZE=$((1024*1024))
 export DIS_BACKEND_FILE_FILE=$store_path
 export DIS_IOCTL_CTL=/dev/s3bd/s3a
 export AWS_ACCESS_KEY_ID="Server-Access-Key"

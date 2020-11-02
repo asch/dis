@@ -14,6 +14,7 @@ file  = ""
 base  = 0
 bound = 0
 file  = ""
+chunksize = 0
 
 [backend]
 enabled = "s3"
