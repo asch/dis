@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"sync"
 	"dis/extent"
 	"dis/parser"
 	"golang.org/x/sys/unix"
@@ -17,6 +18,9 @@ var (
 	Frontier int64
 	file     string
 	fd       int
+	availWriteSectors int64
+	maxUndoneWriteSectors int64 = 4096
+	headerSectors int64 = 8
 )
 
 func Init() {
@@ -33,6 +37,8 @@ func Init() {
 		panic("")
 	}
 	Frontier = Base
+	margin := maxUndoneWriteSectors + 128 * 4096
+	availWriteSectors = Base - margin
 
 	var err error
 	fd, err = unix.Open(file, unix.O_RDWR|unix.O_DIRECT, 0)
@@ -61,6 +67,37 @@ func Reserve(e *extent.Extent) {
 	}
 	e.PBA = Frontier
 	Frontier += roundUp(e.Len, 8)
+}
+
+var mutex sync.Mutex
+var cv = sync.NewCond(&mutex)
+func WriteReserve(e *[]extent.Extent) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var total int64
+	for _, ee := range *e {
+		total += ee.Len + headerSectors
+	}
+
+	for availWriteSectors - total < 0 {
+		cv.Wait()
+	}
+
+	availWriteSectors -= total
+}
+
+func WriteFree(e *[]extent.Extent) {
+	mutex.Lock()
+
+	var total int64
+	for _, ee := range *e {
+		total += ee.Len
+	}
+
+	availWriteSectors += total
+	mutex.Unlock()
+	cv.Broadcast()
 }
 
 func roundDown(x, y int64) int64 { return x - x%y }

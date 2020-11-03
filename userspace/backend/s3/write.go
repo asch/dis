@@ -27,6 +27,7 @@ type cacheReadJob struct {
 	pba   int64
 	buf   *[]byte
 	reads *sync.WaitGroup
+	extentsRound *sync.WaitGroup
 }
 
 func uploadWorker(jobs <-chan uploadJob) {
@@ -40,6 +41,7 @@ func cacheReadWorker(jobs <-chan cacheReadJob) {
 	for job := range jobs {
 		cache.Read(job.buf, job.pba*512)
 		job.reads.Done()
+		job.extentsRound.Done()
 	}
 }
 
@@ -65,6 +67,8 @@ func writer() {
 
 	buf, writelist, blocks, key, reads := nextObject(0)
 	for extents := range workloads {
+		extentsRound := new(sync.WaitGroup)
+		extentsRound.Add(len(*extents))
 		for i := range *extents {
 			e := &(*extents)[i]
 			if (blocks+e.Len)*512 > s3limit && len(*writelist) > 0 {
@@ -83,8 +87,12 @@ func writer() {
 
 			blocks += e.Len
 			reads.Add(1)
-			cacheReadChan <- cacheReadJob{e.PBA, &slice, reads}
+			cacheReadChan <- cacheReadJob{e.PBA, &slice, reads, extentsRound}
 		}
+		go func(e *[]extent.Extent) {
+			extentsRound.Wait()
+			cache.WriteFree(e)
+		}(extents)
 	}
 }
 
