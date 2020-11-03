@@ -1,10 +1,10 @@
 package cache
 
 import (
-	"sync"
 	"dis/extent"
 	"dis/parser"
 	"golang.org/x/sys/unix"
+	"sync"
 )
 
 const (
@@ -13,14 +13,14 @@ const (
 )
 
 var (
-	Base     int64
-	Bound    int64
-	Frontier int64
-	file     string
-	fd       int
-	availWriteSectors int64
+	Base                  int64
+	Bound                 int64
+	Frontier              int64
+	file                  string
+	fd                    int
+	availWriteSectors     int64
 	maxUndoneWriteSectors int64 = 4096
-	headerSectors int64 = 8
+	headerSectors         int64 = 8
 )
 
 func Init() {
@@ -37,7 +37,7 @@ func Init() {
 		panic("")
 	}
 	Frontier = Base
-	margin := maxUndoneWriteSectors + 128 * 4096
+	margin := maxUndoneWriteSectors + 128*4096
 	availWriteSectors = Base - margin
 
 	var err error
@@ -71,6 +71,7 @@ func Reserve(e *extent.Extent) {
 
 var mutex sync.Mutex
 var cv = sync.NewCond(&mutex)
+
 func WriteReserve(e *[]extent.Extent) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -80,7 +81,7 @@ func WriteReserve(e *[]extent.Extent) {
 		total += ee.Len + headerSectors
 	}
 
-	for availWriteSectors - total < 0 {
+	for availWriteSectors-total < 0 {
 		cv.Wait()
 	}
 

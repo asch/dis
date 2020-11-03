@@ -47,7 +47,7 @@ func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg 
 
 	oneChunk := func(i int64) *string {
 		from := fmt.Sprintf("%d", i*l2cache.ChunkSize)
-		to := fmt.Sprintf("%d", i*l2cache.ChunkSize + l2cache.ChunkSize - 1)
+		to := fmt.Sprintf("%d", i*l2cache.ChunkSize+l2cache.ChunkSize-1)
 		rng := "bytes=" + from + "-" + to
 		return &rng
 	}
@@ -70,7 +70,7 @@ again:
 
 func downloadWorker(jobs <-chan downloadJob) {
 	for job := range jobs {
-		first := job.s3e.PBA*512 / l2cache.ChunkSize
+		first := job.s3e.PBA * 512 / l2cache.ChunkSize
 		last := (job.s3e.PBA + job.s3e.Len - 1) * 512 / l2cache.ChunkSize
 		part := *job.buf
 		var waitChunks sync.WaitGroup
@@ -78,11 +78,11 @@ func downloadWorker(jobs <-chan downloadJob) {
 		for i := first; i <= last; i++ {
 			chunkFrom, chunkTo := int64(0), int64(l2cache.ChunkSize)
 			if i == first {
-				chunkFrom = job.s3e.PBA*512 % l2cache.ChunkSize
+				chunkFrom = job.s3e.PBA * 512 % l2cache.ChunkSize
 			}
 
 			if i == last {
-				chunkTo = ((job.s3e.PBA + job.s3e.Len) * 512 - 1) % l2cache.ChunkSize + 1
+				chunkTo = ((job.s3e.PBA+job.s3e.Len)*512-1)%l2cache.ChunkSize + 1
 			}
 			go fillPartFromChunk(part, i, chunkTo, chunkFrom, &waitChunks, job.s3e.Key)
 

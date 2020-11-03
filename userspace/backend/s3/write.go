@@ -24,9 +24,9 @@ type uploadJob struct {
 }
 
 type cacheReadJob struct {
-	pba   int64
-	buf   *[]byte
-	reads *sync.WaitGroup
+	pba          int64
+	buf          *[]byte
+	reads        *sync.WaitGroup
 	extentsRound *sync.WaitGroup
 }
 

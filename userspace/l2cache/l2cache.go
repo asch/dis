@@ -15,12 +15,12 @@ const (
 )
 
 var (
-	cache *lru.Cache
-	base int64
-	bound int64
-	file string
-	fd int
-	chunks int64
+	cache     *lru.Cache
+	base      int64
+	bound     int64
+	file      string
+	fd        int
+	chunks    int64
 	freeChunk int64
 	ChunkSize int64
 )
@@ -56,6 +56,7 @@ func Init() {
 }
 
 var mutex sync.Mutex
+
 func GetOrReserveChunk(id int64) (*[]byte, bool) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -92,7 +93,7 @@ func onEvict(key interface{}, value interface{}) {
 }
 
 func writeChunk(chunk int64, buf *[]byte) {
-	_, err := unix.Pwrite(fd, *buf, chunk * ChunkSize)
+	_, err := unix.Pwrite(fd, *buf, chunk*ChunkSize)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +101,7 @@ func writeChunk(chunk int64, buf *[]byte) {
 
 func readChunk(chunk int64) *[]byte {
 	buf := make([]byte, ChunkSize)
-	_, err := unix.Pread(fd, buf, chunk * ChunkSize)
+	_, err := unix.Pread(fd, buf, chunk*ChunkSize)
 	if err != nil {
 		panic(err)
 	}
