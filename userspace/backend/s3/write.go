@@ -15,6 +15,7 @@ const (
 	uploadBuf        = 10
 	cacheReadWorkers = 10
 	cacheReadBuf     = 10
+	mapUpdateBuf	 = 10
 )
 
 type uploadJob struct {
@@ -45,6 +46,12 @@ func cacheReadWorker(jobs <-chan cacheReadJob) {
 	}
 }
 
+func mapUpdateWorker(writelists <-chan *[]*s3map.S3extent) {
+	for writelist := range writelists {
+		s3m.Update(writelist)
+	}
+}
+
 func nextObject(key int64) (*[]byte, *[]*s3map.S3extent, int64, int64, *sync.WaitGroup) {
 	buf := make([]byte, 0, s3limit)
 	writelist := make([]*s3map.S3extent, 0, 4096)
@@ -65,6 +72,9 @@ func writer() {
 		go uploadWorker(uploadChan)
 	}
 
+	mapUpdateChan := make(chan *[]*s3map.S3extent, mapUpdateBuf)
+	go mapUpdateWorker(mapUpdateChan)
+
 	buf, writelist, blocks, key, reads := nextObject(0)
 	for extents := range workloads {
 		extentsRound := new(sync.WaitGroup)
@@ -72,7 +82,7 @@ func writer() {
 		for i := range *extents {
 			e := &(*extents)[i]
 			if (blocks+e.Len)*512 > s3limit && len(*writelist) > 0 {
-				go func() { s3m.Update(writelist) }()
+				mapUpdateChan <- writelist
 				uploadChan <- uploadJob{key, *buf, reads}
 				buf, writelist, blocks, key, reads = nextObject(key + 1)
 			}
