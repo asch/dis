@@ -72,7 +72,7 @@ func writer() {
 		for i := range *extents {
 			e := &(*extents)[i]
 			if (blocks+e.Len)*512 > s3limit && len(*writelist) > 0 {
-				s3m.Update(writelist)
+				go func() { s3m.Update(writelist) }()
 				uploadChan <- uploadJob{key, *buf, reads}
 				buf, writelist, blocks, key, reads = nextObject(key + 1)
 			}
