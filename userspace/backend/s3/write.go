@@ -15,7 +15,7 @@ const (
 	uploadBuf        = 10
 	cacheReadWorkers = 10
 	cacheReadBuf     = 10
-	mapUpdateBuf	 = 10
+	mapUpdateBuf	 = uploadWorkers + uploadBuf
 )
 
 type uploadJob struct {
