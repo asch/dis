@@ -11,13 +11,13 @@ const workloadsBuf = 1024 * 1024 * 2
 const s3limit = 1024 * 1024 * 32
 
 const (
-	uploadWorkers     = 30
-	uploadBuf         = 10
-	cacheReadWorkers  = 30
-	cacheReadBuf      = 10
-	mapUpdateBuf      = uploadWorkers + uploadBuf
-	cacheWriteFreeBuf = 1024
-	writelistLen      = 4096
+	uploadWorkers      = 30
+	uploadBuf          = 10
+	cacheReadWorkers   = 30
+	cacheReadBuf       = 10
+	mapUpdateBuf       = uploadWorkers + uploadBuf
+	cacheWriteTrackBuf = 1024
+	writelistLen       = 4096
 )
 
 type uploadJob struct {
@@ -27,10 +27,10 @@ type uploadJob struct {
 }
 
 type cacheReadJob struct {
-	e                  *extent.Extent
-	buf                *[]byte
-	reads              *sync.WaitGroup
-	cacheWriteFreeChan chan *extent.Extent
+	e                   *extent.Extent
+	buf                 *[]byte
+	reads               *sync.WaitGroup
+	cacheWriteTrackChan chan *extent.Extent
 }
 
 func uploadWorker(jobs <-chan uploadJob) {
@@ -43,7 +43,7 @@ func uploadWorker(jobs <-chan uploadJob) {
 func cacheReadWorker(jobs <-chan cacheReadJob) {
 	for job := range jobs {
 		cache.Read(job.buf, job.e.PBA*512)
-		job.cacheWriteFreeChan <- job.e
+		job.cacheWriteTrackChan <- job.e
 		job.reads.Done()
 	}
 }
@@ -54,9 +54,9 @@ func mapUpdateWorker(writelists <-chan *[]*s3map.S3extent) {
 	}
 }
 
-func cacheWriteFree(cacheWriteFreeChan <-chan *extent.Extent) {
-	for e := range cacheWriteFreeChan {
-		cache.WriteFreeSingle(e)
+func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
+	for e := range cacheWriteTrackChan {
+		cache.WriteUntrackSingle(e)
 	}
 }
 
@@ -83,8 +83,8 @@ func writer() {
 	mapUpdateChan := make(chan *[]*s3map.S3extent, mapUpdateBuf)
 	go mapUpdateWorker(mapUpdateChan)
 
-	cacheWriteFreeChan := make(chan *extent.Extent, cacheWriteFreeBuf)
-	go cacheWriteFree(cacheWriteFreeChan)
+	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
+	go cacheWriteTrack(cacheWriteTrackChan)
 
 	buf, writelist, blocks, key, reads := nextObject(0)
 	for extents := range workloads {
@@ -106,7 +106,7 @@ func writer() {
 
 			blocks += e.Len
 			reads.Add(1)
-			cacheReadChan <- cacheReadJob{e, &slice, reads, cacheWriteFreeChan}
+			cacheReadChan <- cacheReadJob{e, &slice, reads, cacheWriteTrackChan}
 		}
 	}
 }

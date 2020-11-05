@@ -72,7 +72,7 @@ func Reserve(e *extent.Extent) {
 	Frontier += roundUp(e.Len, 8)
 }
 
-func WriteReserve(e *[]extent.Extent) {
+func WriteTrack(e *[]extent.Extent) {
 	var total int64
 	for _, ee := range *e {
 		total += ee.Len + headerSectors
@@ -88,11 +88,11 @@ again:
 	goto again
 }
 
-func WriteFreeSingle(e *extent.Extent) {
-	atomic.AddInt64(&availWriteSectors, e.Len + headerSectors)
+func WriteUntrackSingle(e *extent.Extent) {
+	atomic.AddInt64(&availWriteSectors, e.Len+headerSectors)
 }
 
-func WriteFree(e *[]extent.Extent) {
+func WriteUntrackMulti(e *[]extent.Extent) {
 	var total int64
 	for _, ee := range *e {
 		total += ee.Len + headerSectors

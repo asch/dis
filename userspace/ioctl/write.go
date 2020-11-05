@@ -8,7 +8,7 @@ import (
 func Write() {
 	for {
 		extents := RWIOCTL(writeNo)
-		cache.WriteReserve(extents)
+		cache.WriteTrack(extents)
 		backend.Write(extents)
 	}
 }
