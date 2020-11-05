@@ -17,6 +17,7 @@ const (
 	cacheReadBuf      = 10
 	mapUpdateBuf      = uploadWorkers + uploadBuf
 	cacheWriteFreeBuf = 1024
+	writelistLen      = 4096
 )
 
 type uploadJob struct {
@@ -61,7 +62,7 @@ func cacheWriteFree(cacheWriteFreeChan <-chan *extent.Extent) {
 
 func nextObject(key int64) (*[]byte, *[]*s3map.S3extent, int64, int64, *sync.WaitGroup) {
 	buf := make([]byte, 0, s3limit)
-	writelist := make([]*s3map.S3extent, 0, 4096)
+	writelist := make([]*s3map.S3extent, 0, writelistLen)
 	var blocks int64
 	var reads sync.WaitGroup
 
