@@ -89,13 +89,13 @@ again:
 }
 
 func WriteFreeSingle(e *extent.Extent) {
-	atomic.AddInt64(&availWriteSectors, e.Len)
+	atomic.AddInt64(&availWriteSectors, e.Len + headerSectors)
 }
 
 func WriteFree(e *[]extent.Extent) {
 	var total int64
 	for _, ee := range *e {
-		total += ee.Len
+		total += ee.Len + headerSectors
 	}
 
 	atomic.AddInt64(&availWriteSectors, total)
