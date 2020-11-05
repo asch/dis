@@ -3,8 +3,11 @@ package cache
 import (
 	"dis/extent"
 	"dis/parser"
+	"math"
+	"sync/atomic"
+	"time"
+
 	"golang.org/x/sys/unix"
-	"sync"
 )
 
 const (
@@ -69,36 +72,33 @@ func Reserve(e *extent.Extent) {
 	Frontier += roundUp(e.Len, 8)
 }
 
-var mutex sync.Mutex
-var cv = sync.NewCond(&mutex)
-
 func WriteReserve(e *[]extent.Extent) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	var total int64
 	for _, ee := range *e {
 		total += ee.Len + headerSectors
 	}
 
-	for availWriteSectors-total < 0 {
-		cv.Wait()
+again:
+	if atomic.LoadInt64(&availWriteSectors) > total {
+		atomic.AddInt64(&availWriteSectors, -total)
+		return
 	}
 
-	availWriteSectors -= total
+	time.Sleep(100 * time.Microsecond)
+	goto again
+}
+
+func WriteFreeSingle(e *extent.Extent) {
+	atomic.AddInt64(&availWriteSectors, e.Len)
 }
 
 func WriteFree(e *[]extent.Extent) {
-	mutex.Lock()
-
 	var total int64
 	for _, ee := range *e {
 		total += ee.Len
 	}
 
-	availWriteSectors += total
-	mutex.Unlock()
-	cv.Broadcast()
+	atomic.AddInt64(&availWriteSectors, total)
 }
 
 func roundDown(x, y int64) int64 { return x - x%y }
