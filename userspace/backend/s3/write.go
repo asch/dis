@@ -55,8 +55,13 @@ func mapUpdateWorker(writelists <-chan *[]*s3map.S3extent) {
 }
 
 func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
+	extents := make([]*extent.Extent, 0, 256)
 	for e := range cacheWriteTrackChan {
-		cache.WriteUntrackSingle(e)
+		extents = append(extents, e)
+		if len(extents) == cap(extents) {
+			cache.WriteUntrackMulti(&extents)
+			extents = extents[:0]
+		}
 	}
 }
 

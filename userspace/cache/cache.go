@@ -92,12 +92,11 @@ func WriteUntrackSingle(e *extent.Extent) {
 	atomic.AddInt64(&availWriteSectors, e.Len+headerSectors)
 }
 
-func WriteUntrackMulti(e *[]extent.Extent) {
+func WriteUntrackMulti(e *[]*extent.Extent) {
 	var total int64
 	for _, ee := range *e {
 		total += ee.Len + headerSectors
 	}
-
 	atomic.AddInt64(&availWriteSectors, total)
 }
 
