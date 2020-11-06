@@ -50,6 +50,7 @@ func (this *S3map) remove(e *S3extent) {
 }
 
 func (this *S3map) insertAt(i int, e *S3extent) {
+	if len(this.m) == cap(this.m) { println("Initial s3map size is too small!") }
 	this.m = append(this.m, nil)
 	copy(this.m[i+1:], this.m[i:])
 	this.m[i] = e
@@ -153,11 +154,13 @@ func (this *S3map) find(e *S3extent) *[]*S3extent {
 		geq := this.geq(e)
 
 		if geq == nil || geq.LBA >= e.LBA+e.Len {
+			if len(l) == cap(l) { println("s3extent list size to small #1") }
 			l = append(l, &S3extent{e.LBA, -1, e.Len, -1})
 			return &l
 		}
 
 		if e.LBA < geq.LBA {
+			if len(l) == cap(l) { println("s3extent list size to small #2") }
 			l = append(l, &S3extent{e.LBA, -1, geq.LBA - e.LBA, -1})
 
 			e.Len -= geq.LBA - e.LBA
@@ -167,6 +170,7 @@ func (this *S3map) find(e *S3extent) *[]*S3extent {
 			e.Key = geq.Key
 		} else {
 			if geq.LBA+geq.Len-e.LBA < e.Len {
+				if len(l) == cap(l) { println("s3extent list size to small #3") }
 				l = append(l, &S3extent{
 					LBA: e.LBA,
 					PBA: geq.PBA + e.LBA - geq.LBA,
@@ -180,6 +184,7 @@ func (this *S3map) find(e *S3extent) *[]*S3extent {
 				e.PBA = -1
 				e.Key = -1
 			} else {
+				if len(l) == cap(l) { println("s3extent list size to small #4") }
 				l = append(l, &S3extent{e.LBA, geq.PBA + e.LBA - geq.LBA, e.Len, geq.Key})
 				return &l
 			}
