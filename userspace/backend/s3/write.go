@@ -103,6 +103,10 @@ func writer() {
 			*buf = (*buf)[:(blocks+e.Len)*512]
 			slice := (*buf)[blocks*512:]
 
+			if len(*writelist) == cap(*writelist) {
+				println("Consider raising writelistLen to avoid memory copy during append!")
+			}
+
 			*writelist = append(*writelist, &s3map.S3extent{
 				LBA: e.LBA,
 				PBA: blocks,
