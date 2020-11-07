@@ -68,6 +68,13 @@ again:
 	wg.Done()
 }
 
+func partDownloadWorker(jobs <-chan downloadJob) {
+	for job := range jobs {
+		partDownload(job.s3e, job.buf)
+		job.s3reads.Done()
+	}
+}
+
 func downloadWorker(jobs <-chan downloadJob) {
 	for job := range jobs {
 		first := job.s3e.PBA * 512 / l2cache.ChunkSize
