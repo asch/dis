@@ -120,6 +120,51 @@ func writer() {
 	}
 }
 
+func computeSectors(extents *[]extent.Extent) int64 {
+	var sectors int64
+	for i := range *extents {
+		e := &(*extents)[i]
+		sectors += e.Len
+	}
+
+	return sectors
+}
+
+func writer2() {
+	mapUpdateChan := make(chan *[]*s3map.S3extent, mapUpdateBuf)
+	go mapUpdateWorker(mapUpdateChan)
+
+	uploadChan := make(chan uploadJob, uploadBuf)
+	for i := 0; i < uploadWorkers; i++ {
+		go uploadWorker(uploadChan)
+	}
+
+	buf, writelist, blocks, key, _ := nextObject(0)
+	for extents := range workloads {
+		pr := cache.NewPrereader(extents)
+		//cache.WriteUntrackMulti(extents)
+		sectors := computeSectors(extents)
+		for i := range *extents {
+			e := &(*extents)[i]
+
+			from := blocks*512
+			to := (blocks+e.Len)*512
+
+			if len(*writelist) == cap(*writelist) { println("Consider raising writelistLen to avoid memory copy during append!") }
+
+			*writelist = append(*writelist, &s3map.S3extent{e.LBA, blocks, e.Len, key})
+			blocks += e.Len
+			pr.Copy((*buf)[from:to], e.PBA*512)
+		}
+
+		if (blocks+sectors)*512 > s3limit {
+			mapUpdateChan <- writelist
+			//uploadChan <- uploadJob{key, (*buf)[:blocks*512]}
+			buf, writelist, blocks, key, _ = nextObject(key + 1)
+		}
+	}
+}
+
 func (this *S3Backend) Write(extents *[]extent.Extent) {
 	workloads <- extents
 }
