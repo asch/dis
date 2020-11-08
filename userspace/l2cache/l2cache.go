@@ -59,13 +59,13 @@ var mutex sync.Mutex
 
 func GetOrReserveChunk(id int64) (*[]byte, bool) {
 	mutex.Lock()
-	defer mutex.Unlock()
-
 	chunk, ok := cache.Get(id)
 	if !ok {
 		cache.Add(id, nil)
+		mutex.Unlock()
 		return nil, false
 	}
+	mutex.Unlock()
 
 	if chunk == interface{}(nil) {
 		return nil, true
