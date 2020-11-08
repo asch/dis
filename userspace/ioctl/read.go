@@ -9,6 +9,11 @@ func Read() {
 	var nextClean int64
 	for {
 		extents := RWIOCTL(readNo)
+		// FIXME: Probable bug in kernel code, sometimes zero-length ioctl set is being sent
+		if len(*extents) == 0 {
+			println("R IOCTL: Zero-length extent set received from kernel!")
+			continue
+		}
 		for i := range *extents {
 			e := &(*extents)[i]
 			cache.Reserve(e)

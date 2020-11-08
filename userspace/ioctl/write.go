@@ -10,7 +10,7 @@ func Write() {
 		extents := RWIOCTL(writeNo)
 		// FIXME: Probable bug in kernel code, sometimes zero-length ioctl set is being sent
 		if len(*extents) == 0 {
-			println("IOCTL: Zero-length extent set received from kernel!")
+			println("W IOCTL: Zero-length extent set received from kernel!")
 			continue
 		}
 		cache.WriteTrack(extents)
