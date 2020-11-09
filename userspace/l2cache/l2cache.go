@@ -93,7 +93,7 @@ func onEvict(key interface{}, value interface{}) {
 }
 
 func writeChunk(chunk int64, buf *[]byte) {
-	_, err := unix.Pwrite(fd, *buf, chunk*ChunkSize)
+	_, err := unix.Pwrite(fd, *buf, base*512+chunk*ChunkSize)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +101,7 @@ func writeChunk(chunk int64, buf *[]byte) {
 
 func readChunk(chunk int64) *[]byte {
 	buf := make([]byte, ChunkSize)
-	_, err := unix.Pread(fd, buf, chunk*ChunkSize)
+	_, err := unix.Pread(fd, buf, base*512+chunk*ChunkSize)
 	if err != nil {
 		panic(err)
 	}
