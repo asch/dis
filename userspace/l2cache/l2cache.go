@@ -89,6 +89,7 @@ func PutChunk(id int64, content *[]byte) {
 }
 
 func onEvict(key interface{}, value interface{}) {
+	println("l2cache: Eviction happened ...")
 	atomic.StoreInt64(&freeChunk, value.(int64))
 }
 
