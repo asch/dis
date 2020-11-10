@@ -36,7 +36,7 @@ type cacheReadJob struct {
 func uploadWorker(jobs <-chan uploadJob) {
 	for job := range jobs {
 		job.reads.Wait()
-		s3op.Upload(job.key, &job.buf)
+		s3s.Upload(job.key, &job.buf)
 	}
 }
 

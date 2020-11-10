@@ -1,8 +1,8 @@
 package object
 
 import (
+	"dis/backend/object/s3"
 	"dis/backend/object/s3map"
-	"dis/backend/object/s3ops"
 	"dis/extent"
 	"dis/parser"
 )
@@ -16,7 +16,7 @@ var (
 	bucket    string
 	region    string
 	remote    string
-	s3op      *s3ops.S3session
+	s3s       *s3.S3session
 	s3m       *s3map.S3map
 	workloads chan *[]extent.Extent
 )
@@ -37,7 +37,7 @@ func (this *ObjectBackend) Init() {
 		panic("")
 	}
 
-	s3op = s3ops.New(&s3ops.Options{Bucket: bucket, Region: region, Remote: remote})
+	s3s = s3.New(&s3.Options{Bucket: bucket, Region: region, Remote: remote})
 	s3m = s3map.New()
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)

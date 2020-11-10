@@ -1,4 +1,4 @@
-package s3ops
+package s3
 
 import (
 	"bytes"

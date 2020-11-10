@@ -26,7 +26,7 @@ func partDownload(s3e *s3map.S3extent, slice *[]byte) {
 	from := fmt.Sprintf("%d", s3e.PBA*512)
 	to := fmt.Sprintf("%d", (s3e.PBA+s3e.Len)*512-1)
 	rng := "bytes=" + from + "-" + to
-	s3op.Download(s3e.Key, slice, &rng)
+	s3s.Download(s3e.Key, slice, &rng)
 }
 
 type cacheWriteJob struct {
@@ -57,7 +57,7 @@ again:
 	chunk, ok := l2cache.GetOrReserveChunk(cacheKey)
 	if !ok {
 		buf := make([]byte, l2cache.ChunkSize)
-		s3op.Download(key, &buf, oneChunk(chunkI))
+		s3s.Download(key, &buf, oneChunk(chunkI))
 		l2cache.PutChunk(cacheKey, &buf)
 		chunk = &buf
 	} else if chunk == nil {
