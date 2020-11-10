@@ -2,6 +2,7 @@ package object
 
 import (
 	"dis/backend/object/extmap"
+	"dis/backend/object/s3"
 	"dis/cache"
 	"dis/extent"
 	"sync"
@@ -36,7 +37,7 @@ type cacheReadJob struct {
 func uploadWorker(jobs <-chan uploadJob) {
 	for job := range jobs {
 		job.reads.Wait()
-		s3s.Upload(job.key, &job.buf)
+		s3.Upload(job.key, &job.buf)
 	}
 }
 

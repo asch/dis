@@ -2,6 +2,7 @@ package s3
 
 import (
 	"bytes"
+	"dis/parser"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -10,40 +11,41 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-type Options struct {
-	Bucket string
-	Remote string
-	Region string
-}
+const (
+	configSection = "backend.object.s3"
+	envPrefix     = "dis_backend_object_s3"
+)
 
-type S3session struct {
-	session    *session.Session
-	client     *s3.S3
-	options    *Options
+var (
 	uploader   *s3manager.Uploader
 	downloader *s3manager.Downloader
-}
+	bucket     string
+	remote     string
+	region     string
+)
 
-func New(o *Options) *S3session {
-	session := &S3session{options: o}
-	session.connect()
-	session.createBucket()
+func Init() {
+	v := parser.Sub(configSection)
+	v.SetEnvPrefix(envPrefix)
+	v.BindEnv("bucket")
+	v.BindEnv("region")
+	v.BindEnv("remote")
+	bucket = v.GetString("bucket")
+	region = v.GetString("region")
+	remote = v.GetString("remote")
 
-	session.uploader.Concurrency = 32
-	s3manager.WithUploaderRequestOptions(request.Option(func(r *request.Request) {
-		r.HTTPRequest.Header.Add("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
-	}))(session.uploader)
+	if bucket == "" || region == "" || remote == "" {
+		panic("")
+	}
 
-	session.downloader.Concurrency = 128
-
-	return session
+	connect()
 }
 
 const keyFmt = "%08d"
 
-func (this *S3session) Upload(key int64, buf *[]byte) {
-	_, err := this.uploader.Upload(&s3manager.UploadInput{
-		Bucket: &this.options.Bucket,
+func Upload(key int64, buf *[]byte) {
+	_, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: &bucket,
 		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
 		Body:   bytes.NewReader(*buf),
 	})
@@ -52,10 +54,10 @@ func (this *S3session) Upload(key int64, buf *[]byte) {
 	}
 }
 
-func (this *S3session) Download(key int64, buf *[]byte, rng *string) {
+func Download(key int64, buf *[]byte, rng *string) {
 	b := aws.NewWriteAtBuffer(*buf)
-	_, err := this.downloader.Download(b, &s3.GetObjectInput{
-		Bucket: &this.options.Bucket,
+	_, err := downloader.Download(b, &s3.GetObjectInput{
+		Bucket: &bucket,
 		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
 		Range:  rng,
 	})
@@ -64,31 +66,33 @@ func (this *S3session) Download(key int64, buf *[]byte, rng *string) {
 	}
 }
 
-func (this *S3session) connect() {
-	var err error
-	this.session, err = session.NewSession(&aws.Config{
-		Endpoint:         &this.options.Remote,
-		Region:           &this.options.Region,
+func connect() {
+	sess, err := session.NewSession(&aws.Config{
+		Endpoint:         &remote,
+		Region:           &region,
 		S3ForcePathStyle: aws.Bool(true),
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	this.client = s3.New(this.session)
-	this.uploader = s3manager.NewUploader(this.session)
-	this.downloader = s3manager.NewDownloader(this.session)
-}
+	client := s3.New(sess)
+	uploader = s3manager.NewUploader(sess)
+	downloader = s3manager.NewDownloader(sess)
 
-func (this *S3session) createBucket() {
-	this.client.CreateBucket(&s3.CreateBucketInput{
-		Bucket: aws.String(this.options.Bucket),
+	uploader.Concurrency = 32
+	s3manager.WithUploaderRequestOptions(request.Option(func(r *request.Request) {
+		r.HTTPRequest.Header.Add("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
+	}))(uploader)
+	downloader.Concurrency = 128
+
+	client.CreateBucket(&s3.CreateBucketInput{
+		Bucket: aws.String(bucket),
 	})
 
-	err := this.client.WaitUntilBucketExists(&s3.HeadBucketInput{
-		Bucket: aws.String(this.options.Bucket),
+	err = client.WaitUntilBucketExists(&s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
 	})
-
 	if err != nil {
 		panic(err)
 	}

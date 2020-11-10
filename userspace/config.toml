@@ -22,7 +22,7 @@ enabled = "object"
     [backend.file]
     file = "store.raw"
 
-    [backend.object]
+    [backend.object.s3]
     bucket = "dis"
     region = "us-east-1"
     remote = "http://192.168.122.1:9000"
