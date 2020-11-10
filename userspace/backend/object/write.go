@@ -1,7 +1,7 @@
 package object
 
 import (
-	"dis/backend/object/s3map"
+	"dis/backend/object/extmap"
 	"dis/cache"
 	"dis/extent"
 	"sync"
@@ -48,9 +48,9 @@ func cacheReadWorker(jobs <-chan cacheReadJob) {
 	}
 }
 
-func mapUpdateWorker(writelists <-chan *[]*s3map.S3extent) {
+func mapUpdateWorker(writelists <-chan *[]*extmap.Extent) {
 	for writelist := range writelists {
-		s3m.Update(writelist)
+		em.Update(writelist)
 	}
 }
 
@@ -65,9 +65,9 @@ func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
 	}
 }
 
-func nextObject(key int64) (*[]byte, *[]*s3map.S3extent, int64, int64, *sync.WaitGroup) {
+func nextObject(key int64) (*[]byte, *[]*extmap.Extent, int64, int64, *sync.WaitGroup) {
 	buf := make([]byte, 0, s3limit)
-	writelist := make([]*s3map.S3extent, 0, writelistLen)
+	writelist := make([]*extmap.Extent, 0, writelistLen)
 	var blocks int64
 	var reads sync.WaitGroup
 
@@ -85,7 +85,7 @@ func writer() {
 		go uploadWorker(uploadChan)
 	}
 
-	mapUpdateChan := make(chan *[]*s3map.S3extent, mapUpdateBuf)
+	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
 	go mapUpdateWorker(mapUpdateChan)
 
 	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
@@ -107,7 +107,7 @@ func writer() {
 				println("Consider raising writelistLen to avoid memory copy during append!")
 			}
 
-			*writelist = append(*writelist, &s3map.S3extent{
+			*writelist = append(*writelist, &extmap.Extent{
 				LBA: e.LBA,
 				PBA: blocks,
 				Len: e.Len,
@@ -131,7 +131,7 @@ func computeSectors(extents *[]extent.Extent) int64 {
 }
 
 func writer2() {
-	mapUpdateChan := make(chan *[]*s3map.S3extent, mapUpdateBuf)
+	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
 	go mapUpdateWorker(mapUpdateChan)
 
 	uploadChan := make(chan uploadJob, uploadBuf)
@@ -147,12 +147,14 @@ func writer2() {
 		for i := range *extents {
 			e := &(*extents)[i]
 
-			from := blocks*512
-			to := (blocks+e.Len)*512
+			from := blocks * 512
+			to := (blocks + e.Len) * 512
 
-			if len(*writelist) == cap(*writelist) { println("Consider raising writelistLen to avoid memory copy during append!") }
+			if len(*writelist) == cap(*writelist) {
+				println("Consider raising writelistLen to avoid memory copy during append!")
+			}
 
-			*writelist = append(*writelist, &s3map.S3extent{e.LBA, blocks, e.Len, key})
+			*writelist = append(*writelist, &extmap.Extent{e.LBA, blocks, e.Len, key})
 			blocks += e.Len
 			pr.Copy((*buf)[from:to], e.PBA*512)
 		}

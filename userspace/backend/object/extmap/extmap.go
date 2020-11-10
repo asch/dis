@@ -1,4 +1,4 @@
-package s3map
+package extmap
 
 import (
 	"dis/extent"
@@ -6,24 +6,24 @@ import (
 	"sync"
 )
 
-type S3map struct {
-	m     []*S3extent
+type ExtentMap struct {
+	m     []*Extent
 	mutex sync.Mutex
 }
 
-type S3extent struct {
+type Extent struct {
 	LBA int64
 	PBA int64
 	Len int64
 	Key int64
 }
 
-func New() *S3map {
-	s3m := S3map{m: make([]*S3extent, 0, 1024*1024)}
-	return &s3m
+func New() *ExtentMap {
+	m := ExtentMap{m: make([]*Extent, 0, 1024*1024)}
+	return &m
 }
 
-func (this *S3map) Update(e *[]*S3extent) {
+func (this *ExtentMap) Update(e *[]*Extent) {
 	this.mutex.Lock()
 	for _, ee := range *e {
 		this.update(ee)
@@ -31,37 +31,39 @@ func (this *S3map) Update(e *[]*S3extent) {
 	this.mutex.Unlock()
 }
 
-func (this *S3map) Find(e *extent.Extent) *[]*S3extent {
+func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
 	this.mutex.Lock()
-	s3extents := this.find(&S3extent{e.LBA, -1, e.Len, -1})
+	extents := this.find(&Extent{e.LBA, -1, e.Len, -1})
 	this.mutex.Unlock()
-	return s3extents
+	return extents
 }
 
-func (this *S3map) removeAt(i int64) {
+func (this *ExtentMap) removeAt(i int64) {
 	copy(this.m[i:], this.m[i+1:])
 	this.m[len(this.m)-1] = nil
 	this.m = this.m[:len(this.m)-1]
 }
 
-func (this *S3map) remove(e *S3extent) {
+func (this *ExtentMap) remove(e *Extent) {
 	i := sort.Search(len(this.m), this.fnEQ(e))
 	this.removeAt(int64(i))
 }
 
-func (this *S3map) insertAt(i int, e *S3extent) {
-	if len(this.m) == cap(this.m) { println("Initial s3map size is too small!") }
+func (this *ExtentMap) insertAt(i int, e *Extent) {
+	if len(this.m) == cap(this.m) {
+		println("Initial extent map size is too small!")
+	}
 	this.m = append(this.m, nil)
 	copy(this.m[i+1:], this.m[i:])
 	this.m[i] = e
 }
 
-func (this *S3map) insert(e *S3extent) {
+func (this *ExtentMap) insert(e *Extent) {
 	i := sort.Search(len(this.m), this.fnEQ(e))
 	this.insertAt(i, e)
 }
 
-func (this *S3map) next(e *S3extent) *S3extent {
+func (this *ExtentMap) next(e *Extent) *Extent {
 	i := sort.Search(len(this.m), this.fnGT(e))
 	if i == len(this.m) {
 		return nil
@@ -69,7 +71,7 @@ func (this *S3map) next(e *S3extent) *S3extent {
 	return this.m[i]
 }
 
-func (this *S3map) fnEQ(e *S3extent) func(int) bool {
+func (this *ExtentMap) fnEQ(e *Extent) func(int) bool {
 	return func(i int) bool {
 		switch {
 		case this.m[i].LBA >= e.LBA:
@@ -80,7 +82,7 @@ func (this *S3map) fnEQ(e *S3extent) func(int) bool {
 	}
 }
 
-func (this *S3map) fnGT(e *S3extent) func(int) bool {
+func (this *ExtentMap) fnGT(e *Extent) func(int) bool {
 	return func(i int) bool {
 		switch {
 		case this.m[i].LBA > e.LBA:
@@ -91,7 +93,7 @@ func (this *S3map) fnGT(e *S3extent) func(int) bool {
 	}
 }
 
-func (this *S3map) fnGEQ(e *S3extent) func(int) bool {
+func (this *ExtentMap) fnGEQ(e *Extent) func(int) bool {
 	return func(i int) bool {
 		switch {
 		case this.m[i].LBA >= e.LBA:
@@ -104,7 +106,7 @@ func (this *S3map) fnGEQ(e *S3extent) func(int) bool {
 	}
 }
 
-func (this *S3map) geq(e *S3extent) *S3extent {
+func (this *ExtentMap) geq(e *Extent) *Extent {
 	i := sort.Search(len(this.m), this.fnGEQ(e))
 	if i == len(this.m) {
 		return nil
@@ -112,10 +114,10 @@ func (this *S3map) geq(e *S3extent) *S3extent {
 	return this.m[i]
 }
 
-func (this *S3map) update(e *S3extent) {
+func (this *ExtentMap) update(e *Extent) {
 	if geq := this.geq(e); geq != nil {
 		if geq.LBA < e.LBA && geq.LBA+geq.Len > e.LBA+e.Len {
-			n := &S3extent{
+			n := &Extent{
 				LBA: e.LBA + e.Len,
 				Len: geq.LBA + geq.Len - (e.LBA + e.Len),
 				Key: geq.Key,
@@ -145,23 +147,27 @@ func (this *S3map) update(e *S3extent) {
 		}
 	}
 
-	this.insert(&S3extent{e.LBA, e.PBA, e.Len, e.Key})
+	this.insert(&Extent{e.LBA, e.PBA, e.Len, e.Key})
 }
 
-func (this *S3map) find(e *S3extent) *[]*S3extent {
-	l := make([]*S3extent, 0, 256)
+func (this *ExtentMap) find(e *Extent) *[]*Extent {
+	l := make([]*Extent, 0, 256)
 	for {
 		geq := this.geq(e)
 
 		if geq == nil || geq.LBA >= e.LBA+e.Len {
-			if len(l) == cap(l) { println("s3extent list size to small #1") }
-			l = append(l, &S3extent{e.LBA, -1, e.Len, -1})
+			if len(l) == cap(l) {
+				println("extent list size to small #1")
+			}
+			l = append(l, &Extent{e.LBA, -1, e.Len, -1})
 			return &l
 		}
 
 		if e.LBA < geq.LBA {
-			if len(l) == cap(l) { println("s3extent list size to small #2") }
-			l = append(l, &S3extent{e.LBA, -1, geq.LBA - e.LBA, -1})
+			if len(l) == cap(l) {
+				println("extent list size to small #2")
+			}
+			l = append(l, &Extent{e.LBA, -1, geq.LBA - e.LBA, -1})
 
 			e.Len -= geq.LBA - e.LBA
 
@@ -170,8 +176,10 @@ func (this *S3map) find(e *S3extent) *[]*S3extent {
 			e.Key = geq.Key
 		} else {
 			if geq.LBA+geq.Len-e.LBA < e.Len {
-				if len(l) == cap(l) { println("s3extent list size to small #3") }
-				l = append(l, &S3extent{
+				if len(l) == cap(l) {
+					println("extent list size to small #3")
+				}
+				l = append(l, &Extent{
 					LBA: e.LBA,
 					PBA: geq.PBA + e.LBA - geq.LBA,
 					Len: geq.LBA + geq.Len - e.LBA,
@@ -184,8 +192,10 @@ func (this *S3map) find(e *S3extent) *[]*S3extent {
 				e.PBA = -1
 				e.Key = -1
 			} else {
-				if len(l) == cap(l) { println("s3extent list size to small #4") }
-				l = append(l, &S3extent{e.LBA, geq.PBA + e.LBA - geq.LBA, e.Len, geq.Key})
+				if len(l) == cap(l) {
+					println("extent list size to small #4")
+				}
+				l = append(l, &Extent{e.LBA, geq.PBA + e.LBA - geq.LBA, e.Len, geq.Key})
 				return &l
 			}
 		}

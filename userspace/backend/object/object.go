@@ -1,8 +1,8 @@
 package object
 
 import (
+	"dis/backend/object/extmap"
 	"dis/backend/object/s3"
-	"dis/backend/object/s3map"
 	"dis/extent"
 	"dis/parser"
 )
@@ -17,7 +17,7 @@ var (
 	region    string
 	remote    string
 	s3s       *s3.S3session
-	s3m       *s3map.S3map
+	em        *extmap.ExtentMap
 	workloads chan *[]extent.Extent
 )
 
@@ -38,7 +38,7 @@ func (this *ObjectBackend) Init() {
 	}
 
 	s3s = s3.New(&s3.Options{Bucket: bucket, Region: region, Remote: remote})
-	s3m = s3map.New()
+	em = extmap.New()
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go writer()
