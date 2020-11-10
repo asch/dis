@@ -1,15 +1,15 @@
-package s3
+package object
 
 import (
-	"dis/backend/s3/s3map"
-	"dis/backend/s3/s3ops"
+	"dis/backend/object/s3map"
+	"dis/backend/object/s3ops"
 	"dis/extent"
 	"dis/parser"
 )
 
 const (
-	configSection = "backend.s3"
-	envPrefix     = "dis_backend_s3"
+	configSection = "backend.object"
+	envPrefix     = "dis_backend_object"
 )
 
 var (
@@ -21,9 +21,9 @@ var (
 	workloads chan *[]extent.Extent
 )
 
-type S3Backend struct{}
+type ObjectBackend struct{}
 
-func (this *S3Backend) Init() {
+func (this *ObjectBackend) Init() {
 	v := parser.Sub(configSection)
 	v.SetEnvPrefix(envPrefix)
 	v.BindEnv("bucket")

@@ -1,7 +1,7 @@
-package s3
+package object
 
 import (
-	"dis/backend/s3/s3map"
+	"dis/backend/object/s3map"
 	"dis/cache"
 	"dis/extent"
 	"dis/l2cache"
@@ -121,7 +121,7 @@ func cacheWriteWorker(jobs <-chan cacheWriteJob) {
 	}
 }
 
-func (this *S3Backend) Read(extents *[]extent.Extent) {
+func (this *ObjectBackend) Read(extents *[]extent.Extent) {
 	var reads sync.WaitGroup
 
 	reads.Add(len(*extents))

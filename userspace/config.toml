@@ -17,12 +17,12 @@ file  = ""
 chunksize = 0
 
 [backend]
-enabled = "s3"
+enabled = "object"
 
     [backend.file]
     file = "store.raw"
 
-    [backend.s3]
+    [backend.object]
     bucket = "dis"
     region = "us-east-1"
     remote = "http://192.168.122.1:9000"

@@ -2,7 +2,7 @@ package backend
 
 import (
 	"dis/backend/file"
-	"dis/backend/s3"
+	"dis/backend/object"
 	"dis/extent"
 	"dis/parser"
 	"reflect"
@@ -18,8 +18,8 @@ var (
 	instance backend
 
 	backendMap = map[string]reflect.Type{
-		"file": reflect.TypeOf(file.FileBackend{}),
-		"s3":   reflect.TypeOf(s3.S3Backend{}),
+		"file":   reflect.TypeOf(file.FileBackend{}),
+		"object": reflect.TypeOf(object.ObjectBackend{}),
 	}
 )
 

@@ -1,7 +1,7 @@
-package s3
+package object
 
 import (
-	"dis/backend/s3/s3map"
+	"dis/backend/object/s3map"
 	"dis/cache"
 	"dis/extent"
 	"sync"
@@ -165,6 +165,6 @@ func writer2() {
 	}
 }
 
-func (this *S3Backend) Write(extents *[]extent.Extent) {
+func (this *ObjectBackend) Write(extents *[]extent.Extent) {
 	workloads <- extents
 }
