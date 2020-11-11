@@ -8,6 +8,8 @@ clean() {
 	sudo rm -f $cache_path $store_path
 }
 
+make -C kernel
+
 cache_path=$(pwd)/cache.raw
 store_path=$(pwd)/store.raw
 
