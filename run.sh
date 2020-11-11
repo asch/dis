@@ -2,8 +2,8 @@
 set -euxo pipefail
 
 clean() {
-	sudo dmsetup remove --retry s3a
-	sudo rmmod dm_s3bd
+	sudo dmsetup remove --retry disa
+	sudo rmmod dm_disbd
 	sudo losetup -d $loop
 	sudo rm -f $cache_path $store_path
 }
@@ -20,7 +20,7 @@ l2cache_sectors=$((l2cache_size_M*1024*1024/512))
 store_size_M=1024
 store_sectors=$((store_size_M*1024*1024/512))
 
-sudo insmod kernel/dm-s3bd.ko
+sudo insmod kernel/dm-disbd.ko
 
 rm -f $store_path && truncate -s ${store_size_M}M $store_path
 rm -f $cache_path && truncate -s $((cache_size_M + l2cache_size_M))M $cache_path
@@ -28,7 +28,7 @@ rm -f $cache_path && truncate -s $((cache_size_M + l2cache_size_M))M $cache_path
 loop=$(sudo losetup -f --show $cache_path)
 trap clean 0
 
-echo 0 $store_sectors s3bd $loop s3a 0 $((cache_sectors/2)) 4096 | sudo dmsetup --noudevsync create s3a
+echo 0 $store_sectors disbd $loop disa 0 $((cache_sectors/2)) 4096 | sudo dmsetup --noudevsync create disa
 sleep 1
 
 (
@@ -41,7 +41,7 @@ export DIS_L2CACHE_BOUND=$((cache_sectors + l2cache_sectors))
 export DIS_L2CACHE_FILE=$loop
 export DIS_L2CACHE_CHUNKSIZE=$((1024*1024))
 export DIS_BACKEND_FILE_FILE=$store_path
-export DIS_IOCTL_CTL=/dev/s3bd/s3a
+export DIS_IOCTL_CTL=/dev/disbd/disa
 export AWS_ACCESS_KEY_ID="Server-Access-Key"
 export AWS_SECRET_ACCESS_KEY="Server-Secret-Key"
 
