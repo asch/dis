@@ -14,12 +14,9 @@ const (
 )
 
 var (
-	n         int
-	writeNo   uint
-	readNo    uint
-	resolveNo uint
-	ctl       string
-	ctlFD     int
+	n     int
+	ctl   string
+	ctlFD int
 )
 
 func Init() {
@@ -27,12 +24,9 @@ func Init() {
 	v.SetEnvPrefix(envPrefix)
 	v.BindEnv("ctl")
 	ctl = v.GetString("ctl")
-	writeNo = v.GetUint("writeNo")
-	readNo = v.GetUint("readNo")
-	resolveNo = v.GetUint("resolveNo")
 	n = v.GetInt("extents")
 
-	if n == 0 || ctl == "" || writeNo == 0 || readNo == 0 || resolveNo == 0 {
+	if n == 0 || ctl == "" {
 		panic("")
 	}
 
@@ -99,7 +93,7 @@ func resolveIOCTL(extents *[]extent.Extent, clearLO, clearHI int64) {
 	}
 
 	p := unsafe.Pointer(&resolve)
-	err := unix.IoctlSetInt(ctlFD, resolveNo, int(uintptr(p)))
+	err := unix.IoctlSetInt(ctlFD, resolveNo(), int(uintptr(p)))
 	if err != nil {
 		panic(err)
 	}

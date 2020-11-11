@@ -1,9 +1,6 @@
 [ioctl]
 extents   = 128
 ctl       = ""
-writeNo   = 3222299650
-readNo    = 3222299651
-resolveNo = 1075864580
 
 [cache]
 base  = 0
