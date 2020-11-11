@@ -1,6 +1,9 @@
 #ifndef __DISBD_U_H__
 #define __DISBD_U_H__
 
+#include <asm/ioctl.h>
+#include <stdint.h>
+
 #define DIS_HDR_MAGIC 0x4c443353
 #define DIS_HDR_SIZE 4096
 
