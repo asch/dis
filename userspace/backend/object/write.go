@@ -5,6 +5,7 @@ import (
 	"dis/backend/object/s3"
 	"dis/cache"
 	"dis/extent"
+	"encoding/binary"
 	"sync"
 )
 
@@ -66,18 +67,21 @@ type Object struct {
 	blocks    int64
 	reads     *sync.WaitGroup
 	key       int64
+	extents   int64
 }
 
 func nextObject(key int64) *Object {
 	buf := make([]byte, 0, objectSize)
 	writelist := make([]*extmap.Extent, 0, writelistLen)
 	var reads sync.WaitGroup
+	var headerBlocks int64 = (writelistLen * 16) / 512
 
 	return &Object{
 		buf:       &buf,
 		writelist: &writelist,
 		reads:     &reads,
 		key:       key,
+		blocks:    headerBlocks,
 	}
 }
 
@@ -95,9 +99,25 @@ func (o *Object) add(e *extent.Extent) []byte {
 		Len: e.Len,
 		Key: o.key})
 
+	o.fillHeader(e)
+
+	o.extents++
 	o.blocks += e.Len
 
 	return slice
+}
+
+func (o *Object) fillHeader(e *extent.Extent) {
+	const int64Size = 8
+	off := o.extents * int64Size * 2
+
+	headerSlice := (*o.buf)[off:]
+
+	binary.PutVarint(headerSlice, e.LBA)
+	headerSlice = headerSlice[int64Size:]
+
+	binary.PutVarint(headerSlice, e.Len)
+	headerSlice = headerSlice[int64Size:]
 }
 
 func writer() {
