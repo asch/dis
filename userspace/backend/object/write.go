@@ -21,12 +21,6 @@ const (
 	writelistLen       = objectSize / 512
 )
 
-type uploadJob struct {
-	key   int64
-	buf   []byte
-	reads *sync.WaitGroup
-}
-
 type cacheReadJob struct {
 	e                   *extent.Extent
 	buf                 *[]byte
@@ -34,10 +28,10 @@ type cacheReadJob struct {
 	cacheWriteTrackChan chan *extent.Extent
 }
 
-func uploadWorker(jobs <-chan uploadJob) {
-	for job := range jobs {
-		job.reads.Wait()
-		s3.Upload(job.key, &job.buf)
+func uploadWorker(oo <-chan *Object) {
+	for o := range oo {
+		o.reads.Wait()
+		s3.Upload(o.key, o.buf)
 	}
 }
 
@@ -87,13 +81,32 @@ func nextObject(key int64) *Object {
 	}
 }
 
+func (this *Object) size() int64 {
+	return this.blocks * 512
+}
+
+func (o *Object) add(e *extent.Extent) []byte {
+	*o.buf = (*o.buf)[:(o.blocks+e.Len)*512]
+	slice := (*o.buf)[o.blocks*512:]
+
+	*o.writelist = append(*o.writelist, &extmap.Extent{
+		LBA: e.LBA,
+		PBA: o.blocks,
+		Len: e.Len,
+		Key: o.key})
+
+	o.blocks += e.Len
+
+	return slice
+}
+
 func writer() {
 	cacheReadChan := make(chan cacheReadJob, cacheReadBuf)
 	for i := 0; i < cacheReadWorkers; i++ {
 		go cacheReadWorker(cacheReadChan)
 	}
 
-	uploadChan := make(chan uploadJob, uploadBuf)
+	uploadChan := make(chan *Object, uploadBuf)
 	for i := 0; i < uploadWorkers; i++ {
 		go uploadWorker(uploadChan)
 	}
@@ -108,21 +121,14 @@ func writer() {
 	for extents := range workloads {
 		for i := range *extents {
 			e := &(*extents)[i]
-			if (o.blocks+e.Len)*512 > objectSize && len(*o.writelist) > 0 {
+			if o.size()+e.Len*512 > objectSize && len(*o.writelist) > 0 {
 				mapUpdateChan <- o.writelist
-				uploadChan <- uploadJob{o.key, *o.buf, o.reads}
+				uploadChan <- o
 				o = nextObject(o.key + 1)
 			}
-			*o.buf = (*o.buf)[:(o.blocks+e.Len)*512]
-			slice := (*o.buf)[o.blocks*512:]
 
-			*o.writelist = append(*o.writelist, &extmap.Extent{
-				LBA: e.LBA,
-				PBA: o.blocks,
-				Len: e.Len,
-				Key: o.key})
+			slice := o.add(e)
 
-			o.blocks += e.Len
 			o.reads.Add(1)
 			cacheReadChan <- cacheReadJob{e, &slice, o.reads, cacheWriteTrackChan}
 		}
@@ -143,7 +149,7 @@ func writer2() {
 	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
 	go mapUpdateWorker(mapUpdateChan)
 
-	uploadChan := make(chan uploadJob, uploadBuf)
+	uploadChan := make(chan *Object, uploadBuf)
 	for i := 0; i < uploadWorkers; i++ {
 		go uploadWorker(uploadChan)
 	}
