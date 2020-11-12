@@ -18,7 +18,7 @@ const (
 	cacheReadBuf       = 10
 	mapUpdateBuf       = uploadWorkers + uploadBuf
 	cacheWriteTrackBuf = 1024
-	writelistLen       = 4096
+	writelistLen       = objectSize / 512
 )
 
 type uploadJob struct {
@@ -104,10 +104,6 @@ func writer() {
 			*buf = (*buf)[:(blocks+e.Len)*512]
 			slice := (*buf)[blocks*512:]
 
-			if len(*writelist) == cap(*writelist) {
-				println("Consider raising writelistLen to avoid memory copy during append!")
-			}
-
 			*writelist = append(*writelist, &extmap.Extent{
 				LBA: e.LBA,
 				PBA: blocks,
@@ -151,9 +147,6 @@ func writer2() {
 			from := blocks * 512
 			to := (blocks + e.Len) * 512
 
-			if len(*writelist) == cap(*writelist) {
-				println("Consider raising writelistLen to avoid memory copy during append!")
-			}
 
 			*writelist = append(*writelist, &extmap.Extent{e.LBA, blocks, e.Len, key})
 			blocks += e.Len
