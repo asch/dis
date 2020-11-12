@@ -66,13 +66,25 @@ func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
 	}
 }
 
-func nextObject(key int64) (*[]byte, *[]*extmap.Extent, int64, int64, *sync.WaitGroup) {
+type Object struct {
+	buf       *[]byte
+	writelist *[]*extmap.Extent
+	blocks    int64
+	reads     *sync.WaitGroup
+	key       int64
+}
+
+func nextObject(key int64) *Object {
 	buf := make([]byte, 0, objectSize)
 	writelist := make([]*extmap.Extent, 0, writelistLen)
-	var blocks int64
 	var reads sync.WaitGroup
 
-	return &buf, &writelist, blocks, key, &reads
+	return &Object{
+		buf:       &buf,
+		writelist: &writelist,
+		reads:     &reads,
+		key:       key,
+	}
 }
 
 func writer() {
@@ -92,27 +104,27 @@ func writer() {
 	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
 	go cacheWriteTrack(cacheWriteTrackChan)
 
-	buf, writelist, blocks, key, reads := nextObject(0)
+	o := nextObject(0)
 	for extents := range workloads {
 		for i := range *extents {
 			e := &(*extents)[i]
-			if (blocks+e.Len)*512 > objectSize && len(*writelist) > 0 {
-				mapUpdateChan <- writelist
-				uploadChan <- uploadJob{key, *buf, reads}
-				buf, writelist, blocks, key, reads = nextObject(key + 1)
+			if (o.blocks+e.Len)*512 > objectSize && len(*o.writelist) > 0 {
+				mapUpdateChan <- o.writelist
+				uploadChan <- uploadJob{o.key, *o.buf, o.reads}
+				o = nextObject(o.key + 1)
 			}
-			*buf = (*buf)[:(blocks+e.Len)*512]
-			slice := (*buf)[blocks*512:]
+			*o.buf = (*o.buf)[:(o.blocks+e.Len)*512]
+			slice := (*o.buf)[o.blocks*512:]
 
-			*writelist = append(*writelist, &extmap.Extent{
+			*o.writelist = append(*o.writelist, &extmap.Extent{
 				LBA: e.LBA,
-				PBA: blocks,
+				PBA: o.blocks,
 				Len: e.Len,
-				Key: key})
+				Key: o.key})
 
-			blocks += e.Len
-			reads.Add(1)
-			cacheReadChan <- cacheReadJob{e, &slice, reads, cacheWriteTrackChan}
+			o.blocks += e.Len
+			o.reads.Add(1)
+			cacheReadChan <- cacheReadJob{e, &slice, o.reads, cacheWriteTrackChan}
 		}
 	}
 }
@@ -136,7 +148,7 @@ func writer2() {
 		go uploadWorker(uploadChan)
 	}
 
-	buf, writelist, blocks, key, _ := nextObject(0)
+	o := nextObject(0)
 	for extents := range workloads {
 		pr := cache.NewPrereader(extents)
 		//cache.WriteUntrackMulti(extents)
@@ -144,19 +156,18 @@ func writer2() {
 		for i := range *extents {
 			e := &(*extents)[i]
 
-			from := blocks * 512
-			to := (blocks + e.Len) * 512
+			from := o.blocks * 512
+			to := (o.blocks + e.Len) * 512
 
-
-			*writelist = append(*writelist, &extmap.Extent{e.LBA, blocks, e.Len, key})
-			blocks += e.Len
-			pr.Copy((*buf)[from:to], e.PBA*512)
+			*o.writelist = append(*o.writelist, &extmap.Extent{e.LBA, o.blocks, e.Len, o.key})
+			o.blocks += e.Len
+			pr.Copy((*o.buf)[from:to], e.PBA*512)
 		}
 
-		if (blocks+sectors)*512 > objectSize {
-			mapUpdateChan <- writelist
+		if (o.blocks+sectors)*512 > objectSize {
+			mapUpdateChan <- o.writelist
 			//uploadChan <- uploadJob{key, (*buf)[:blocks*512]}
-			buf, writelist, blocks, key, _ = nextObject(key + 1)
+			o = nextObject(o.key + 1)
 		}
 	}
 }
