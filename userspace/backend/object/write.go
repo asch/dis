@@ -9,7 +9,7 @@ import (
 )
 
 const workloadsBuf = 1024 * 1024 * 2
-const s3limit = 1024 * 1024 * 32
+const objectSize = 1024 * 1024 * 32
 
 const (
 	uploadWorkers      = 30
@@ -67,7 +67,7 @@ func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
 }
 
 func nextObject(key int64) (*[]byte, *[]*extmap.Extent, int64, int64, *sync.WaitGroup) {
-	buf := make([]byte, 0, s3limit)
+	buf := make([]byte, 0, objectSize)
 	writelist := make([]*extmap.Extent, 0, writelistLen)
 	var blocks int64
 	var reads sync.WaitGroup
@@ -96,7 +96,7 @@ func writer() {
 	for extents := range workloads {
 		for i := range *extents {
 			e := &(*extents)[i]
-			if (blocks+e.Len)*512 > s3limit && len(*writelist) > 0 {
+			if (blocks+e.Len)*512 > objectSize && len(*writelist) > 0 {
 				mapUpdateChan <- writelist
 				uploadChan <- uploadJob{key, *buf, reads}
 				buf, writelist, blocks, key, reads = nextObject(key + 1)
@@ -160,7 +160,7 @@ func writer2() {
 			pr.Copy((*buf)[from:to], e.PBA*512)
 		}
 
-		if (blocks+sectors)*512 > s3limit {
+		if (blocks+sectors)*512 > objectSize {
 			mapUpdateChan <- writelist
 			//uploadChan <- uploadJob{key, (*buf)[:blocks*512]}
 			buf, writelist, blocks, key, _ = nextObject(key + 1)

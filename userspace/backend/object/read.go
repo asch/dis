@@ -38,7 +38,7 @@ type cacheWriteJob struct {
 type downloadJob struct {
 	e       *extmap.Extent
 	buf     *[]byte
-	s3reads *sync.WaitGroup
+	reads *sync.WaitGroup
 }
 
 func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg *sync.WaitGroup, key int64) {
@@ -72,7 +72,7 @@ again:
 func partDownloadWorker(jobs <-chan downloadJob) {
 	for job := range jobs {
 		partDownload(job.e, job.buf)
-		job.s3reads.Done()
+		job.reads.Done()
 	}
 }
 
@@ -99,7 +99,7 @@ func downloadWorker(jobs <-chan downloadJob) {
 			}
 		}
 		waitChunks.Wait()
-		job.s3reads.Done()
+		job.reads.Done()
 	}
 }
 
