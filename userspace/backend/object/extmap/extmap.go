@@ -2,12 +2,13 @@ package extmap
 
 import (
 	"dis/extent"
-	"sort"
+	"github.com/emirpasic/gods/trees/redblacktree"
+	"github.com/emirpasic/gods/utils"
 	"sync"
 )
 
 type ExtentMap struct {
-	m     []*Extent
+	rbt   *redblacktree.Tree
 	mutex sync.Mutex
 }
 
@@ -19,7 +20,7 @@ type Extent struct {
 }
 
 func New() *ExtentMap {
-	m := ExtentMap{m: make([]*Extent, 0, 1024*1024)}
+	m := ExtentMap{rbt: redblacktree.NewWith(utils.Int64Comparator)}
 	return &m
 }
 
@@ -38,80 +39,28 @@ func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
 	return extents
 }
 
-func (this *ExtentMap) removeAt(i int64) {
-	copy(this.m[i:], this.m[i+1:])
-	this.m[len(this.m)-1] = nil
-	this.m = this.m[:len(this.m)-1]
-}
-
-func (this *ExtentMap) remove(e *Extent) {
-	i := sort.Search(len(this.m), this.fnEQ(e))
-	this.removeAt(int64(i))
-}
-
-func (this *ExtentMap) insertAt(i int, e *Extent) {
-	if len(this.m) == cap(this.m) {
-		println("Initial extent map size is too small!")
-	}
-	this.m = append(this.m, nil)
-	copy(this.m[i+1:], this.m[i:])
-	this.m[i] = e
-}
-
 func (this *ExtentMap) insert(e *Extent) {
-	i := sort.Search(len(this.m), this.fnEQ(e))
-	this.insertAt(i, e)
+	this.rbt.Put(e.LBA, e)
 }
 
 func (this *ExtentMap) next(e *Extent) *Extent {
-	i := sort.Search(len(this.m), this.fnGT(e))
-	if i == len(this.m) {
+	next, _ := this.rbt.Ceiling(e.LBA + 1)
+	if next == nil {
 		return nil
 	}
-	return this.m[i]
+	return next.Value.(*Extent)
 }
 
-func (this *ExtentMap) fnEQ(e *Extent) func(int) bool {
-	return func(i int) bool {
-		switch {
-		case this.m[i].LBA >= e.LBA:
-			return true
-		default:
-			return false
-		}
-	}
-}
-
-func (this *ExtentMap) fnGT(e *Extent) func(int) bool {
-	return func(i int) bool {
-		switch {
-		case this.m[i].LBA > e.LBA:
-			return true
-		default:
-			return false
-		}
-	}
-}
-
-func (this *ExtentMap) fnGEQ(e *Extent) func(int) bool {
-	return func(i int) bool {
-		switch {
-		case this.m[i].LBA >= e.LBA:
-			return true
-		case this.m[i].LBA+this.m[i].Len > e.LBA:
-			return true
-		default:
-			return false
-		}
-	}
+func (this *ExtentMap) remove(e *Extent) {
+	this.rbt.Remove(e.LBA)
 }
 
 func (this *ExtentMap) geq(e *Extent) *Extent {
-	i := sort.Search(len(this.m), this.fnGEQ(e))
-	if i == len(this.m) {
+	geq, _ := this.rbt.Ceiling(e.LBA)
+	if geq == nil {
 		return nil
 	}
-	return this.m[i]
+	return geq.Value.(*Extent)
 }
 
 func (this *ExtentMap) update(e *Extent) {
