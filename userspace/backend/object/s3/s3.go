@@ -68,9 +68,10 @@ func Download(key int64, buf *[]byte, rng *string) {
 
 func connect() {
 	sess, err := session.NewSession(&aws.Config{
-		Endpoint:         &remote,
-		Region:           &region,
-		S3ForcePathStyle: aws.Bool(true),
+		Endpoint:                      &remote,
+		Region:                        &region,
+		S3ForcePathStyle:              aws.Bool(true),
+		S3DisableContentMD5Validation: aws.Bool(true),
 	})
 	if err != nil {
 		panic(err)
