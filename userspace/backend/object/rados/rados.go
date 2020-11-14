@@ -48,7 +48,8 @@ func Init() {
 	}
 
 	ioctx.ListObjects(func(oid string) { ioctx.Delete(oid) })
-	ioctx.Destroy()
+
+	go func() { ioctx.Destroy() }()
 }
 
 const keyFmt = "%08d"
@@ -64,7 +65,7 @@ func Upload(key int64, buf *[]byte) {
 		panic(err)
 	}
 
-	ioctx.Destroy()
+	go func() { ioctx.Destroy() }()
 }
 
 func Download(key int64, buf *[]byte, offset uint64) {
@@ -78,5 +79,5 @@ func Download(key int64, buf *[]byte, offset uint64) {
 		panic(err)
 	}
 
-	ioctx.Destroy()
+	go func() { ioctx.Destroy() }()
 }
