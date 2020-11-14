@@ -185,7 +185,13 @@ func writer2() {
 			from := o.blocks * 512
 			to := (o.blocks + e.Len) * 512
 
-			*o.writelist = append(*o.writelist, &extmap.Extent{e.LBA, o.blocks, e.Len, o.key})
+			*o.writelist = append(*o.writelist, &extmap.Extent{
+				LBA: e.LBA,
+				PBA: o.blocks,
+				Len: e.Len,
+				Key: o.key,
+			})
+
 			o.blocks += e.Len
 			pr.Copy((*o.buf)[from:to], e.PBA*512)
 		}
