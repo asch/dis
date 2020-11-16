@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bufio"
 	"bytes"
 	"dis/parser"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"os"
+	"strconv"
 )
 
 const (
@@ -17,11 +20,12 @@ const (
 )
 
 var (
-	uploader   *s3manager.Uploader
-	downloader *s3manager.Downloader
-	bucket     string
-	remote     string
-	region     string
+	uploader      *s3manager.Uploader
+	downloader    *s3manager.Downloader
+	bucket        string
+	remote        string
+	region        string
+	FnHeaderToMap func(header *[]byte, key int64)
 )
 
 func Init() {
@@ -87,12 +91,51 @@ func connect() {
 	}))(uploader)
 	downloader.Concurrency = 128
 
-	client.CreateBucket(&s3.CreateBucketInput{
-		Bucket: aws.String(bucket),
-	})
+	_, err = client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+	if err == nil {
+		fmt.Println("\nDo you want to recover volume from", bucket, "? [Y/n]")
+		yn, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if yn == "N\n" || yn == "n\n" {
+			err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
+				Bucket: &bucket,
+			}, func(page *s3.ListObjectsV2Output, last bool) bool {
+				for _, o := range page.Contents {
+					client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucket, Key: o.Key})
+				}
+				return true
+			})
+			if err != nil {
+				panic(err)
+			}
 
-	err = client.WaitUntilBucketExists(&s3.HeadBucketInput{
+			_, err = client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucket})
+			if err != nil {
+				panic(err)
+			}
+			_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
+			if err != nil {
+				panic(err)
+			}
+			err = client.WaitUntilBucketExists(&s3.HeadBucketInput{Bucket: &bucket})
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+	}
+
+	err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
+	}, func(page *s3.ListObjectsV2Output, last bool) bool {
+		for _, o := range page.Contents {
+			headerSize := (*o.Size / 512) * 16
+			rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
+			buf := make([]byte, headerSize)
+			key, _ := strconv.ParseInt(*o.Key, 10, 64)
+			Download(key, &buf, &rng)
+			FnHeaderToMap(&buf, key)
+		}
+		return true
 	})
 	if err != nil {
 		panic(err)

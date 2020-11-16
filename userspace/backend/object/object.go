@@ -5,6 +5,7 @@ import (
 	"dis/backend/object/s3"
 	"dis/extent"
 	"dis/parser"
+	"encoding/binary"
 )
 
 const (
@@ -18,6 +19,7 @@ var (
 	remote    string
 	em        *extmap.ExtentMap
 	workloads chan *[]extent.Extent
+	startKey  int64
 )
 
 type ObjectBackend struct{}
@@ -26,8 +28,26 @@ func (this *ObjectBackend) Init() {
 	v := parser.Sub(configSection)
 	v.SetEnvPrefix(envPrefix)
 
-	s3.Init()
 	em = extmap.New()
+	s3.FnHeaderToMap = func(header *[]byte, key int64) {
+		startKey = key + 1
+		const int64Size = 8
+		var blocks int64 = (writelistLen * 16) / 512
+
+		for i := 0; i < len(*header); i += 2 * int64Size {
+			var e extmap.Extent
+			e.Key = key
+			e.PBA = blocks
+			e.LBA, _ = binary.Varint((*header)[i : i+int64Size])
+			e.Len, _ = binary.Varint((*header)[i+int64Size : i+2*int64Size])
+			if e.Len == 0 {
+				break
+			}
+			em.UpdateSingle(&e)
+			blocks += e.Len
+		}
+	}
+	s3.Init()
 
 	workloads = make(chan *[]extent.Extent, workloadsBuf)
 	go writer()
