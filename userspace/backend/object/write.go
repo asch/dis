@@ -112,12 +112,10 @@ func (o *Object) fillHeader(e *extent.Extent) {
 	off := o.extents * int64Size * 2
 
 	headerSlice := (*o.buf)[off:]
-
 	binary.PutVarint(headerSlice, e.LBA)
-	headerSlice = headerSlice[int64Size:]
 
-	binary.PutVarint(headerSlice, e.Len)
 	headerSlice = headerSlice[int64Size:]
+	binary.PutVarint(headerSlice, e.Len)
 }
 
 func writer() {
