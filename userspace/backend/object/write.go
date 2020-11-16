@@ -32,6 +32,7 @@ type cacheReadJob struct {
 func uploadWorker(oo <-chan *Object) {
 	for o := range oo {
 		o.reads.Wait()
+		*o.buf = (*o.buf)[:cap(*o.buf)]
 		s3.Upload(o.key, o.buf)
 	}
 }
