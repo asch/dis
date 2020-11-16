@@ -24,9 +24,7 @@ var (
 )
 
 func partDownload(e *extmap.Extent, slice *[]byte) {
-	from := fmt.Sprintf("%d", e.PBA*512)
-	to := fmt.Sprintf("%d", (e.PBA+e.Len)*512-1)
-	rng := "bytes=" + from + "-" + to
+	rng := fmt.Sprintf("bytes=%d-%d", e.PBA*512, (e.PBA+e.Len)*512-1)
 	s3.Download(e.Key, slice, &rng)
 }
 
@@ -47,9 +45,7 @@ func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg 
 	}
 
 	oneChunk := func(i int64) *string {
-		from := fmt.Sprintf("%d", i*l2cache.ChunkSize)
-		to := fmt.Sprintf("%d", i*l2cache.ChunkSize+l2cache.ChunkSize-1)
-		rng := "bytes=" + from + "-" + to
+		rng := fmt.Sprintf("bytes=%d-%d", i*l2cache.ChunkSize, i*l2cache.ChunkSize+l2cache.ChunkSize-1)
 		return &rng
 	}
 
