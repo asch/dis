@@ -32,6 +32,12 @@ func (this *ExtentMap) Update(e *[]*Extent) {
 	this.mutex.Unlock()
 }
 
+func (this *ExtentMap) UpdateSingle(e *Extent) {
+	this.mutex.Lock()
+	this.update(e)
+	this.mutex.Unlock()
+}
+
 func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
 	this.mutex.Lock()
 	extents := this.find(&Extent{e.LBA, -1, e.Len, -1})
