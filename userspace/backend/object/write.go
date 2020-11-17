@@ -7,6 +7,7 @@ import (
 	"dis/extent"
 	"encoding/binary"
 	"sync"
+	"time"
 )
 
 const workloadsBuf = 1024 * 1024 * 2
@@ -20,6 +21,7 @@ const (
 	mapUpdateBuf       = uploadWorkers + uploadBuf
 	cacheWriteTrackBuf = 1024
 	writelistLen       = objectSize / 512
+	maxWritePeriod     = 1 * time.Second
 )
 
 type cacheReadJob struct {
@@ -136,20 +138,35 @@ func writer() {
 	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
 	go cacheWriteTrack(cacheWriteTrackChan)
 
-	o := nextObject(0)
-	for extents := range workloads {
-		for i := range *extents {
-			e := &(*extents)[i]
-			if o.size()+e.Len*512 > objectSize && len(*o.writelist) > 0 {
-				mapUpdateChan <- o.writelist
-				uploadChan <- o
-				o = nextObject(o.key + 1)
+
+	ticker := time.NewTicker(maxWritePeriod)
+	o := nextObject(startKey)
+
+	upload := func() {
+		if o.extents == 0 {
+			return
+		}
+		mapUpdateChan <- o.writelist
+		uploadChan <- o
+		o = nextObject(o.key + 1)
+		ticker.Reset(maxWritePeriod)
+	}
+
+	for {
+		select {
+		case extents := <-workloads:
+			for i := range *extents {
+				e := &(*extents)[i]
+				if o.size()+e.Len*512 > objectSize || len(ticker.C) > 0 {
+					upload()
+				}
+
+				slice := o.add(e)
+				o.reads.Add(1)
+				cacheReadChan <- cacheReadJob{e, &slice, o.reads, cacheWriteTrackChan}
 			}
-
-			slice := o.add(e)
-
-			o.reads.Add(1)
-			cacheReadChan <- cacheReadJob{e, &slice, o.reads, cacheWriteTrackChan}
+		case <-ticker.C:
+			upload()
 		}
 	}
 }
