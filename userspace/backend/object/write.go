@@ -146,6 +146,7 @@ func writer() {
 		if o.extents == 0 {
 			return
 		}
+		gc.Create(o.key, int64(len(*o.buf)))
 		mapUpdateChan <- o.writelist
 		uploadChan <- o
 		o = nextObject(o.key + 1)

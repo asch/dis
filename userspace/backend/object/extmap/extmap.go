@@ -1,6 +1,7 @@
 package extmap
 
 import (
+	"dis/backend/object/gc"
 	"dis/extent"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
@@ -79,11 +80,15 @@ func (this *ExtentMap) update(e *Extent) {
 			}
 			n.PBA = geq.PBA + geq.Len - n.Len
 
+			gc.Free(geq.Key, n.Len)
+			gc.Add(n.Key, n.Len)
+
 			geq.Len = e.LBA - geq.LBA
 			this.insert(n)
 			geq = n
 
 		} else if geq.LBA < e.LBA {
+			gc.Free(geq.Key, geq.Len-e.LBA+geq.LBA)
 			geq.Len = e.LBA - geq.LBA
 			geq = this.next(geq)
 		}
@@ -91,6 +96,7 @@ func (this *ExtentMap) update(e *Extent) {
 		for geq != nil && geq.LBA+geq.Len <= e.LBA+e.Len {
 			tmp := this.next(geq)
 			this.remove(geq)
+			gc.Free(geq.Key, geq.Len)
 			geq = tmp
 		}
 
@@ -99,10 +105,12 @@ func (this *ExtentMap) update(e *Extent) {
 			geq.LBA += n
 			geq.PBA += n
 			geq.Len -= n
+			gc.Free(geq.Key, n)
 		}
 	}
 
 	this.insert(&Extent{e.LBA, e.PBA, e.Len, e.Key})
+	gc.Add(e.Key, e.Len)
 }
 
 func (this *ExtentMap) find(e *Extent) *[]*Extent {
