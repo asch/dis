@@ -16,7 +16,7 @@ store_path=$(pwd)/store.raw
 cache_size_M=16
 cache_sectors=$((cache_size_M*1024*1024/512))
 
-l2cache_size_M=$((256))
+l2cache_size_M=256
 l2cache_sectors=$((l2cache_size_M*1024*1024/512))
 
 store_size_M=1024
