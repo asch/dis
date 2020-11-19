@@ -2,12 +2,13 @@ package gc
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 const ratio = 0.6
 
 var (
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	usage map[int64]*objectUsage
 )
 
@@ -17,17 +18,19 @@ type objectUsage struct {
 }
 
 func Free(key, size int64) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	mutex.RLock()
+	o := usage[key]
+	mutex.RUnlock()
 
-	usage[key].used -= size
+	atomic.AddInt64(&o.used, -size)
 }
 
 func Add(key, size int64) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	mutex.RLock()
+	o := usage[key]
+	mutex.RUnlock()
 
-	usage[key].used += size
+	atomic.AddInt64(&o.used, size)
 }
 
 func Create(key, total int64) {
