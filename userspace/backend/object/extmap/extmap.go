@@ -10,7 +10,7 @@ import (
 
 type ExtentMap struct {
 	rbt   *redblacktree.Tree
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 type Extent struct {
@@ -40,9 +40,9 @@ func (this *ExtentMap) UpdateSingle(e *Extent) {
 }
 
 func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
-	this.mutex.Lock()
+	this.mutex.RLock()
 	extents := this.find(&Extent{e.LBA, -1, e.Len, -1})
-	this.mutex.Unlock()
+	this.mutex.RUnlock()
 	return extents
 }
 
