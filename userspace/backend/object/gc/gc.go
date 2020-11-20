@@ -9,7 +9,7 @@ const ratio = 0.6
 
 var (
 	mutex sync.RWMutex
-	usage map[int64]*objectUsage
+	usage = make(map[int64]*objectUsage)
 )
 
 type objectUsage struct {
