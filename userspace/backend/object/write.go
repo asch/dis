@@ -8,6 +8,7 @@ import (
 	"dis/extent"
 	"encoding/binary"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -74,7 +75,7 @@ type Object struct {
 	extents   int64
 }
 
-func nextObject(key int64) *Object {
+func nextObject() *Object {
 	buf := make([]byte, 0, objectSize)
 	writelist := make([]*extmap.Extent, 0, writelistLen)
 	var reads sync.WaitGroup
@@ -84,13 +85,21 @@ func nextObject(key int64) *Object {
 		buf:       &buf,
 		writelist: &writelist,
 		reads:     &reads,
-		key:       key,
 		blocks:    headerBlocks,
 	}
 }
 
 func (this *Object) size() int64 {
 	return this.blocks * 512
+}
+
+func (this *Object) assignKey() {
+	this.key = atomic.LoadInt64(&seqNumber)
+	atomic.AddInt64(&seqNumber, 1)
+
+	for _, e := range *this.writelist {
+		e.Key = this.key
+	}
 }
 
 func (o *Object) add(e *extent.Extent) []byte {
@@ -139,18 +148,19 @@ func writer() {
 	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
 	go cacheWriteTrack(cacheWriteTrackChan)
 
-
 	ticker := time.NewTicker(maxWritePeriod)
-	o := nextObject(startKey)
 
+	o := nextObject()
 	upload := func() {
 		if o.extents == 0 {
 			return
 		}
+		o.assignKey()
+
 		gc.Create(o.key, int64(len(*o.buf)))
 		mapUpdateChan <- o.writelist
 		uploadChan <- o
-		o = nextObject(o.key + 1)
+		o = nextObject()
 		ticker.Reset(maxWritePeriod)
 	}
 

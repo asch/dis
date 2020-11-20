@@ -7,6 +7,7 @@ import (
 	"dis/extent"
 	"dis/parser"
 	"encoding/binary"
+	"sync/atomic"
 )
 
 const (
@@ -20,7 +21,7 @@ var (
 	remote    string
 	em        *extmap.ExtentMap
 	workloads chan *[]extent.Extent
-	startKey  int64
+	seqNumber int64
 )
 
 type ObjectBackend struct{}
@@ -31,7 +32,7 @@ func (this *ObjectBackend) Init() {
 
 	em = extmap.New()
 	s3.FnHeaderToMap = func(header *[]byte, key, size int64) {
-		startKey = key + 1
+		atomic.StoreInt64(&seqNumber, key+1)
 		const int64Size = 8
 		var blocks int64 = (writelistLen * 16) / 512
 
