@@ -25,7 +25,7 @@ var (
 	bucket        string
 	remote        string
 	region        string
-	FnHeaderToMap func(header *[]byte, key int64)
+	FnHeaderToMap func(header *[]byte, key, size int64)
 )
 
 func Init() {
@@ -133,7 +133,7 @@ func connect() {
 			buf := make([]byte, headerSize)
 			key, _ := strconv.ParseInt(*o.Key, 10, 64)
 			Download(key, &buf, &rng)
-			FnHeaderToMap(&buf, key)
+			FnHeaderToMap(&buf, key, *o.Size)
 		}
 		return true
 	})

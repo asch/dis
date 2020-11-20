@@ -2,6 +2,7 @@ package object
 
 import (
 	"dis/backend/object/extmap"
+	"dis/backend/object/gc"
 	"dis/backend/object/s3"
 	"dis/extent"
 	"dis/parser"
@@ -29,11 +30,12 @@ func (this *ObjectBackend) Init() {
 	v.SetEnvPrefix(envPrefix)
 
 	em = extmap.New()
-	s3.FnHeaderToMap = func(header *[]byte, key int64) {
+	s3.FnHeaderToMap = func(header *[]byte, key, size int64) {
 		startKey = key + 1
 		const int64Size = 8
 		var blocks int64 = (writelistLen * 16) / 512
 
+		gc.Create(key, size/512)
 		for i := 0; i < len(*header); i += 2 * int64Size {
 			var e extmap.Extent
 			e.Key = key
