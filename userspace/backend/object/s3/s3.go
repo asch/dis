@@ -22,6 +22,7 @@ const (
 var (
 	uploader      *s3manager.Uploader
 	downloader    *s3manager.Downloader
+	client        *s3.S3
 	bucket        string
 	remote        string
 	region        string
@@ -70,6 +71,13 @@ func Download(key int64, buf *[]byte, rng *string) {
 	}
 }
 
+func Delete(key int64) {
+	_, err := client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucket, Key: aws.String(fmt.Sprintf(keyFmt, key))})
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func connect() {
 	sess, err := session.NewSession(&aws.Config{
 		Endpoint:                      &remote,
@@ -81,7 +89,7 @@ func connect() {
 		panic(err)
 	}
 
-	client := s3.New(sess)
+	client = s3.New(sess)
 	uploader = s3manager.NewUploader(sess)
 	downloader = s3manager.NewDownloader(sess)
 
@@ -124,14 +132,25 @@ func connect() {
 		}
 	}
 
+	var lastKey int64 = -1
+	var finished bool
 	err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 	}, func(page *s3.ListObjectsV2Output, last bool) bool {
 		for _, o := range page.Contents {
+			key, _ := strconv.ParseInt(*o.Key, 10, 64)
+			if finished {
+				Delete(key)
+				continue
+			}
+			if lastKey != -1 && key != lastKey+1 {
+				finished = true
+				continue
+			}
+			lastKey = key
 			headerSize := (*o.Size / 512) * 16
 			rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
 			buf := make([]byte, headerSize)
-			key, _ := strconv.ParseInt(*o.Key, 10, 64)
 			Download(key, &buf, &rng)
 			FnHeaderToMap(&buf, key, *o.Size)
 		}
