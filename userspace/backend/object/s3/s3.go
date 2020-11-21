@@ -148,6 +148,9 @@ func connect() {
 				continue
 			}
 			lastKey = key
+			if *o.Size == 0 {
+				continue
+			}
 			headerSize := (*o.Size / 512) * 16
 			rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
 			buf := make([]byte, headerSize)
