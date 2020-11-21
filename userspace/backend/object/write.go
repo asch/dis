@@ -38,6 +38,7 @@ func uploadWorker(oo <-chan *Object) {
 		*o.buf = (*o.buf)[:cap(*o.buf)]
 		o.reads.Wait()
 		s3.Upload(o.key, o.buf)
+		o.upload.Done()
 	}
 }
 
@@ -73,6 +74,7 @@ type Object struct {
 	reads     *sync.WaitGroup
 	key       int64
 	extents   int64
+	upload    sync.WaitGroup
 }
 
 func nextObject() *Object {
@@ -81,12 +83,15 @@ func nextObject() *Object {
 	var reads sync.WaitGroup
 	var headerBlocks int64 = (writelistLen * 16) / 512
 
-	return &Object{
+	o := Object{
 		buf:       &buf,
 		writelist: &writelist,
 		reads:     &reads,
 		blocks:    headerBlocks,
 	}
+	o.upload.Add(1)
+
+	return &o
 }
 
 func (this *Object) size() int64 {
