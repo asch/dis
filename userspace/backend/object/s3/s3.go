@@ -78,6 +78,17 @@ func Delete(key int64) {
 	}
 }
 
+func Void(key int64) {
+	_, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: &bucket,
+		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
+		Body:   bytes.NewReader(make([]byte, 0)),
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func connect() {
 	sess, err := session.NewSession(&aws.Config{
 		Endpoint:                      &remote,
