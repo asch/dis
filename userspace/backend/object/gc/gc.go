@@ -8,8 +8,9 @@ import (
 const ratio = 0.6
 
 var (
-	mutex sync.RWMutex
-	usage = make(map[int64]*objectUsage)
+	mutex   sync.RWMutex
+	usage   = make(map[int64]*objectUsage)
+	Running = new(sync.WaitGroup)
 )
 
 type objectUsage struct {
