@@ -2,7 +2,6 @@ package ioctl
 
 import (
 	"dis/backend"
-	"dis/cache"
 )
 
 func Write() {
@@ -13,7 +12,6 @@ func Write() {
 			println("W IOCTL: Zero-length extent set received from kernel!")
 			continue
 		}
-		cache.WriteTrack(extents)
 		backend.Write(extents)
 	}
 }

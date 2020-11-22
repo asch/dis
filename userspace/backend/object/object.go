@@ -52,7 +52,7 @@ func (this *ObjectBackend) Init() {
 	}
 	s3.Init()
 
-	workloads = make(chan *[]extent.Extent, workloadsBuf)
+	workloads = make(chan *[]extent.Extent)
 	go writer()
 
 	for i := 0; i < cacheWriteWorkers; i++ {

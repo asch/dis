@@ -12,59 +12,20 @@ import (
 	"time"
 )
 
-const workloadsBuf = 1024 * 1024 * 2
 const objectSize = 1024 * 1024 * 32
 
 const (
-	uploadWorkers      = 30
-	uploadBuf          = 10
-	cacheReadWorkers   = 30
-	cacheReadBuf       = 10
-	mapUpdateBuf       = uploadWorkers + uploadBuf
-	cacheWriteTrackBuf = 1024
-	writelistLen       = objectSize / 512
-	maxWritePeriod     = 1 * time.Second
+	uploadWorkers    = 10
+	cacheReadWorkers = 50
+	writelistLen     = objectSize / 512
+	maxWritePeriod   = 1 * time.Second
 )
 
 type cacheReadJob struct {
-	e                   *extent.Extent
-	buf                 *[]byte
-	reads               *sync.WaitGroup
-	cacheWriteTrackChan chan *extent.Extent
-}
-
-func uploadWorker(oo <-chan *Object) {
-	for o := range oo {
-		*o.buf = (*o.buf)[:cap(*o.buf)]
-		o.reads.Wait()
-		s3.Upload(o.key, o.buf)
-		o.upload.Done()
-	}
-}
-
-func cacheReadWorker(jobs <-chan cacheReadJob) {
-	for job := range jobs {
-		cache.Read(job.buf, job.e.PBA*512)
-		job.cacheWriteTrackChan <- job.e
-		job.reads.Done()
-	}
-}
-
-func mapUpdateWorker(writelists <-chan *[]*extmap.Extent) {
-	for writelist := range writelists {
-		em.Update(writelist)
-	}
-}
-
-func cacheWriteTrack(cacheWriteTrackChan <-chan *extent.Extent) {
-	extents := make([]*extent.Extent, 0, 256)
-	for e := range cacheWriteTrackChan {
-		extents = append(extents, e)
-		if len(extents) == cap(extents) {
-			cache.WriteUntrackMulti(&extents)
-			extents = extents[:0]
-		}
-	}
+	e        *extent.Extent
+	buf      *[]byte
+	reads    *sync.WaitGroup
+	allReads *sync.WaitGroup
 }
 
 type Object struct {
@@ -137,21 +98,28 @@ func (o *Object) fillHeader(e *extent.Extent) {
 }
 
 func writer() {
-	cacheReadChan := make(chan cacheReadJob, cacheReadBuf)
+	cacheReadChan := make(chan cacheReadJob)
 	for i := 0; i < cacheReadWorkers; i++ {
-		go cacheReadWorker(cacheReadChan)
+		go func() {
+			for c := range cacheReadChan {
+				cache.Read(c.buf, c.e.PBA*512)
+				c.reads.Done()
+				c.allReads.Done()
+			}
+		}()
 	}
 
-	uploadChan := make(chan *Object, uploadBuf)
+	uploadChan := make(chan *Object)
 	for i := 0; i < uploadWorkers; i++ {
-		go uploadWorker(uploadChan)
+		go func() {
+			for u := range uploadChan {
+				*u.buf = (*u.buf)[:cap(*u.buf)]
+				u.reads.Wait()
+				s3.Upload(u.key, u.buf)
+				u.upload.Done()
+			}
+		}()
 	}
-
-	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
-	go mapUpdateWorker(mapUpdateChan)
-
-	cacheWriteTrackChan := make(chan *extent.Extent, cacheWriteTrackBuf)
-	go cacheWriteTrack(cacheWriteTrackChan)
 
 	ticker := time.NewTicker(maxWritePeriod)
 
@@ -161,14 +129,16 @@ func writer() {
 			return
 		}
 		o.assignKey()
-
-		gc.Create(o.key, int64(len(*o.buf)))
-		mapUpdateChan <- o.writelist
+		em.Update(o.writelist)
 		uploadChan <- o
 		o = nextObject()
+		for len(ticker.C) > 0 {
+			<-ticker.C
+		}
 		ticker.Reset(maxWritePeriod)
 	}
 
+	var allReads sync.WaitGroup
 	for {
 		select {
 		case extents := <-workloads:
@@ -180,8 +150,10 @@ func writer() {
 
 				slice := o.add(e)
 				o.reads.Add(1)
-				cacheReadChan <- cacheReadJob{e, &slice, o.reads, cacheWriteTrackChan}
+				allReads.Add(1)
+				cacheReadChan <- cacheReadJob{e, &slice, o.reads, &allReads}
 			}
+			allReads.Wait()
 		case <-ticker.C:
 			upload()
 		}
