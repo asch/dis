@@ -12,15 +12,13 @@ import (
 )
 
 const (
-	downloadWorkers   = 10
-	downloadBuf       = 10
-	cacheWriteWorkers = 10
-	cacheWriteBuf     = 10
+	downloadWorkers   = 20
+	cacheWriteWorkers = 20
 )
 
 var (
-	cacheWriteChan = make(chan cacheWriteJob, cacheWriteBuf)
-	downloadChan   = make(chan downloadJob, downloadBuf)
+	cacheWriteChan = make(chan cacheWriteJob)
+	downloadChan   = make(chan downloadJob)
 )
 
 func partDownload(e *extmap.Extent, slice *[]byte) {
@@ -63,13 +61,6 @@ again:
 	}
 	copy(slice, (*chunk)[chunkFrom:chunkTo])
 	wg.Done()
-}
-
-func partDownloadWorker(jobs <-chan downloadJob) {
-	for job := range jobs {
-		partDownload(job.e, job.buf)
-		job.reads.Done()
-	}
 }
 
 func downloadWorker(jobs <-chan downloadJob) {

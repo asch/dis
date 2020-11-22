@@ -60,6 +60,12 @@ func (this *ObjectBackend) Init() {
 	}
 
 	for i := 0; i < downloadWorkers; i++ {
-		go downloadWorker(downloadChan)
+		//go downloadWorker(downloadChan)
+		go func() {
+			for d := range downloadChan {
+				partDownload(d.e, d.buf)
+				d.reads.Done()
+			}
+		}()
 	}
 }
