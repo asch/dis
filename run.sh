@@ -30,7 +30,8 @@ rm -f $cache_path && truncate -s $((cache_size_M + l2cache_size_M))M $cache_path
 loop=$(sudo losetup -f --show $cache_path)
 trap clean 0
 
-echo 0 $store_sectors disbd $loop disa 0 $((cache_sectors/2)) 4096 | sudo dmsetup --noudevsync create disa
+max_w_ioctl_sectors=$((1024*1024/512))
+echo 0 $store_sectors disbd $loop disa 0 $((cache_sectors/2)) $((cache_sectors/2 - max_w_ioctl_sectors)) | sudo dmsetup --noudevsync create disa
 sleep 1
 
 (
