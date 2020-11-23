@@ -8,6 +8,7 @@ import (
 	"dis/parser"
 	"encoding/binary"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -63,6 +64,13 @@ func (this *ObjectBackend) Init() {
 		//go downloadWorker(downloadChan)
 		go func() {
 			for d := range downloadChan {
+				mutex.RLock()
+			again:
+				if uploading[d.e.Key] {
+					time.Sleep(500 * time.Microsecond)
+					goto again
+				}
+				mutex.RUnlock()
 				partDownload(d.e, d.buf)
 				d.reads.Done()
 			}

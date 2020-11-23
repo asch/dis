@@ -21,6 +21,11 @@ const (
 	maxWritePeriod   = 1 * time.Second
 )
 
+var (
+	mutex     sync.RWMutex
+	uploading = make(map[int64]bool)
+)
+
 type cacheReadJob struct {
 	e        *extent.Extent
 	buf      *[]byte
@@ -117,6 +122,9 @@ func writer() {
 				u.reads.Wait()
 				s3.Upload(u.key, u.buf)
 				u.upload.Done()
+				mutex.Lock()
+				delete(uploading, u.key)
+				mutex.Unlock()
 			}
 		}()
 	}
@@ -129,6 +137,9 @@ func writer() {
 			return
 		}
 		o.assignKey()
+		mutex.Lock()
+		uploading[o.key] = true
+		mutex.Unlock()
 		em.Update(o.writelist)
 		uploadChan <- o
 		o = nextObject()
