@@ -1107,9 +1107,30 @@ static long dis_dev_ioctl(struct file *fp, unsigned int num, unsigned long arg)
 	}
 }
 
+static int dis_dev_release(struct inode *in, struct file *fp)
+{
+	struct miscdevice *m = fp->private_data;
+	struct disbd *dis = container_of(m, struct disbd, misc);
+
+	while (!bio_list_empty(&dis->faulted_reads)) {
+		struct bio *bio = bio_list_pop(&dis->faulted_reads);
+		bio->bi_status = BLK_STS_IOERR;
+		bio_endio(bio);
+	}
+
+	while (!bio_list_empty(&dis->undone_writes)) {
+		struct bio *bio = bio_list_pop(&dis->undone_writes);
+		bio->bi_status = BLK_STS_IOERR;
+		bio_endio(bio);
+	}
+
+	return 0;
+}
+
 static const struct file_operations dis_misc_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = dis_dev_ioctl,
+	.release = dis_dev_release,
 };
 
 static int __init dm_dis_init(void)
