@@ -40,7 +40,6 @@ type Object struct {
 	reads     *sync.WaitGroup
 	key       int64
 	extents   int64
-	upload    sync.WaitGroup
 }
 
 func nextObject() *Object {
@@ -55,7 +54,6 @@ func nextObject() *Object {
 		reads:     &reads,
 		blocks:    headerBlocks,
 	}
-	o.upload.Add(1)
 
 	return &o
 }
@@ -121,7 +119,6 @@ func writer() {
 				*u.buf = (*u.buf)[:cap(*u.buf)]
 				u.reads.Wait()
 				s3.Upload(u.key, u.buf)
-				u.upload.Done()
 				mutex.Lock()
 				delete(uploading, u.key)
 				mutex.Unlock()
