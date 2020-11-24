@@ -14,13 +14,15 @@ func getDownloadChan() chan downloadJob {
 	for i := 0; i < 5; i++ {
 		go func() {
 			for c := range ch {
-				mutex.RLock()
-			again:
-				if uploading[c.e.Key] {
+				for {
+					mutex.RLock()
+					wait := uploading[c.e.Key]
+					mutex.RUnlock()
+					if wait != true {
+						break
+					}
 					time.Sleep(500 * time.Microsecond)
-					goto again
 				}
-				mutex.RUnlock()
 				partDownload(c.e, c.buf)
 				c.reads.Done()
 			}

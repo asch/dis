@@ -64,13 +64,15 @@ func (this *ObjectBackend) Init() {
 		//go downloadWorker(downloadChan)
 		go func() {
 			for d := range downloadChan {
-				mutex.RLock()
-			again:
-				if uploading[d.e.Key] {
+				for {
+					mutex.RLock()
+					wait := uploading[d.e.Key]
+					mutex.RUnlock()
+					if wait != true {
+						break
+					}
 					time.Sleep(500 * time.Microsecond)
-					goto again
 				}
-				mutex.RUnlock()
 				partDownload(d.e, d.buf)
 				d.reads.Done()
 			}
