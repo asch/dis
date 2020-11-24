@@ -37,6 +37,7 @@ func getUploadChan() (chan *Object, *sync.WaitGroup) {
 		go func() {
 			for c := range ch {
 				c.reads.Wait()
+				*c.buf = (*c.buf)[:cap(*c.buf)]
 				s3.Upload(c.key, c.buf)
 				uploadsWG.Done()
 			}
