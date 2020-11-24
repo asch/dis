@@ -87,8 +87,8 @@ func gcthread() {
 				upload()
 			}
 
-			slice := o.add(e.LBA, e.Len, true)
 			newPBAs[i] = o.blocks
+			slice := o.add(e.LBA, e.Len, true)
 
 			o.reads.Add(1)
 			go func(o *Object, e *extmap.Extent) {
