@@ -76,4 +76,6 @@ func (this *ObjectBackend) Init() {
 			}
 		}()
 	}
+
+	//go gcthread()
 }

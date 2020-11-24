@@ -46,6 +46,36 @@ func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
 	return extents
 }
 
+func (this *ExtentMap) RLock() {
+	this.mutex.RLock()
+}
+
+func (this *ExtentMap) RUnlock() {
+	this.mutex.RUnlock()
+}
+
+func (this *ExtentMap) Lock() {
+	this.mutex.Lock()
+}
+
+func (this *ExtentMap) Unlock() {
+	this.mutex.Unlock()
+}
+
+func (this *ExtentMap) GenerateWritelist(purgeList *map[int64]bool) *[]*Extent {
+	writelist := new([]*Extent)
+
+	it := this.rbt.Iterator()
+	for it.Next() {
+		e := it.Value().(*Extent)
+		if (*purgeList)[e.Key] {
+			*writelist = append(*writelist, e)
+		}
+	}
+
+	return writelist
+}
+
 func (this *ExtentMap) insert(e *Extent) {
 	this.rbt.Put(e.LBA, e)
 }

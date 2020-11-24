@@ -10,7 +10,7 @@ const ratio = 0.6
 var (
 	mutex   sync.RWMutex
 	usage   = make(map[int64]*objectUsage)
-	Running = new(sync.WaitGroup)
+	Running = new(sync.Mutex)
 )
 
 type objectUsage struct {
@@ -39,4 +39,25 @@ func Create(key, total int64) {
 	defer mutex.Unlock()
 
 	usage[key] = &objectUsage{total, 0}
+}
+
+func Destroy(key int64) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	delete(usage, key)
+}
+
+func GetPurgeSet() *map[int64]bool {
+	purgeSet := map[int64]bool{}
+
+	mutex.RLock()
+	for k, v := range usage {
+		if r := float64(v.used) / float64(v.total); r < ratio {
+			purgeSet[k] = true
+		}
+	}
+	mutex.RUnlock()
+
+	return &purgeSet
 }

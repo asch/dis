@@ -42,9 +42,14 @@ type Object struct {
 	extents   int64
 }
 
-func nextObject() *Object {
+func nextObject(inGC bool) *Object {
 	buf := make([]byte, 0, objectSize)
-	writelist := make([]*extmap.Extent, 0, writelistLen)
+	var writelist []*extmap.Extent
+	if inGC {
+		writelist = make([]*extmap.Extent, 0, 0)
+	} else {
+		writelist = make([]*extmap.Extent, 0, writelistLen)
+	}
 	var reads sync.WaitGroup
 	var headerBlocks int64 = (writelistLen * 16) / 512
 
@@ -65,39 +70,41 @@ func (this *Object) size() int64 {
 func (this *Object) assignKey() {
 	this.key = atomic.LoadInt64(&seqNumber)
 	atomic.AddInt64(&seqNumber, 1)
+	gc.Create(this.key, this.blocks)
 
 	for _, e := range *this.writelist {
 		e.Key = this.key
 	}
 }
 
-func (o *Object) add(e *extent.Extent) []byte {
-	*o.buf = (*o.buf)[:(o.blocks+e.Len)*512]
+func (o *Object) add(lba, length int64, inGC bool) []byte {
+	*o.buf = (*o.buf)[:(o.blocks+length)*512]
 	slice := (*o.buf)[o.blocks*512:]
 
-	*o.writelist = append(*o.writelist, &extmap.Extent{
-		LBA: e.LBA,
-		PBA: o.blocks,
-		Len: e.Len,
-		Key: o.key})
+	if !inGC {
+		*o.writelist = append(*o.writelist, &extmap.Extent{
+			LBA: lba,
+			PBA: o.blocks,
+			Len: length,
+			Key: o.key})
+	}
 
-	o.fillHeader(e)
-
+	o.fillHeader(lba, length)
 	o.extents++
-	o.blocks += e.Len
+	o.blocks += length
 
 	return slice
 }
 
-func (o *Object) fillHeader(e *extent.Extent) {
+func (o *Object) fillHeader(lba, length int64) {
 	const int64Size = 8
 	off := o.extents * int64Size * 2
 
 	headerSlice := (*o.buf)[off:]
-	binary.PutVarint(headerSlice, e.LBA)
+	binary.PutVarint(headerSlice, lba)
 
 	headerSlice = headerSlice[int64Size:]
-	binary.PutVarint(headerSlice, e.Len)
+	binary.PutVarint(headerSlice, length)
 }
 
 func writer() {
@@ -128,18 +135,23 @@ func writer() {
 
 	ticker := time.NewTicker(maxWritePeriod)
 
-	o := nextObject()
+	o := nextObject(false)
 	upload := func() {
 		if o.extents == 0 {
 			return
 		}
+		//gc.Running.Wait()
+		gc.Running.Lock()
 		o.assignKey()
 		mutex.Lock()
 		uploading[o.key] = true
 		mutex.Unlock()
 		em.Update(o.writelist)
+
+		gc.Running.Unlock()
+
 		uploadChan <- o
-		o = nextObject()
+		o = nextObject(false)
 		for len(ticker.C) > 0 {
 			<-ticker.C
 		}
@@ -156,7 +168,7 @@ func writer() {
 					upload()
 				}
 
-				slice := o.add(e)
+				slice := o.add(e.LBA, e.Len, false)
 				o.reads.Add(1)
 				allReads.Add(1)
 				cacheReadChan <- cacheReadJob{e, &slice, o.reads, &allReads}
@@ -178,44 +190,44 @@ func computeSectors(extents *[]extent.Extent) int64 {
 	return sectors
 }
 
-func writer2() {
-	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
-	go mapUpdateWorker(mapUpdateChan)
-
-	uploadChan := make(chan *Object, uploadBuf)
-	for i := 0; i < uploadWorkers; i++ {
-		go uploadWorker(uploadChan)
-	}
-
-	o := nextObject(0)
-	for extents := range workloads {
-		pr := cache.NewPrereader(extents)
-		//cache.WriteUntrackMulti(extents)
-		sectors := computeSectors(extents)
-		for i := range *extents {
-			e := &(*extents)[i]
-
-			from := o.blocks * 512
-			to := (o.blocks + e.Len) * 512
-
-			*o.writelist = append(*o.writelist, &extmap.Extent{
-				LBA: e.LBA,
-				PBA: o.blocks,
-				Len: e.Len,
-				Key: o.key,
-			})
-
-			o.blocks += e.Len
-			pr.Copy((*o.buf)[from:to], e.PBA*512)
-		}
-
-		if (o.blocks+sectors)*512 > objectSize {
-			mapUpdateChan <- o.writelist
-			//uploadChan <- uploadJob{key, (*buf)[:blocks*512]}
-			o = nextObject(o.key + 1)
-		}
-	}
-}
+//func writer2() {
+//	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
+//	//go mapUpdateWorker(mapUpdateChan)
+//
+//	uploadChan := make(chan *Object, uploadBuf)
+//	for i := 0; i < uploadWorkers; i++ {
+//		go uploadWorker(uploadChan)
+//	}
+//
+//	o := nextObject(0)
+//	for extents := range workloads {
+//		pr := cache.NewPrereader(extents)
+//		//cache.WriteUntrackMulti(extents)
+//		sectors := computeSectors(extents)
+//		for i := range *extents {
+//			e := &(*extents)[i]
+//
+//			from := o.blocks * 512
+//			to := (o.blocks + e.Len) * 512
+//
+//			*o.writelist = append(*o.writelist, &extmap.Extent{
+//				LBA: e.LBA,
+//				PBA: o.blocks,
+//				Len: e.Len,
+//				Key: o.key,
+//			})
+//
+//			o.blocks += e.Len
+//			pr.Copy((*o.buf)[from:to], e.PBA*512)
+//		}
+//
+//		if (o.blocks+sectors)*512 > objectSize {
+//			mapUpdateChan <- o.writelist
+//			//uploadChan <- uploadJob{key, (*buf)[:blocks*512]}
+//			o = nextObject(o.key + 1)
+//		}
+//	}
+//}
 
 func (this *ObjectBackend) Write(extents *[]extent.Extent) {
 	workloads <- extents
