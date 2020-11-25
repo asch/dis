@@ -32,8 +32,8 @@ type cacheWriteJob struct {
 }
 
 type downloadJob struct {
-	e       *extmap.Extent
-	buf     *[]byte
+	e     *extmap.Extent
+	buf   *[]byte
 	reads *sync.WaitGroup
 }
 
