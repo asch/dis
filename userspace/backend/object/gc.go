@@ -53,7 +53,6 @@ func gcthread() {
 	const gcPeriod = 120 * time.Second
 	for {
 		time.Sleep(gcPeriod)
-		//gc.Running.Add(1)
 		gc.Running.Lock()
 		em.RLock()
 		fmt.Println("GC Started")
@@ -111,7 +110,6 @@ func gcthread() {
 		}
 
 		em.Unlock()
-		//gc.Running.Done()
 		gc.Running.Unlock()
 
 		for key := range *purgeSet {
