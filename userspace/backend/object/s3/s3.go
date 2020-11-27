@@ -112,7 +112,7 @@ func connect() {
 
 	_, err = client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
 	if err == nil {
-		fmt.Println("\nDo you want to recover volume from", bucket, "? [Y/n]")
+		fmt.Println("Do you want to recover volume from", bucket, "? [Y/n]")
 		yn, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 		if yn == "N\n" || yn == "n\n" {
 			err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
@@ -141,36 +141,45 @@ func connect() {
 			}
 			return
 		}
-	}
 
-	var lastKey int64 = -1
-	var finished bool
-	err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
-	}, func(page *s3.ListObjectsV2Output, last bool) bool {
-		for _, o := range page.Contents {
-			key, _ := strconv.ParseInt(*o.Key, 10, 64)
-			if finished {
-				Delete(key)
-				continue
+		var lastKey int64 = -1
+		var finished bool
+		err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
+			Bucket: aws.String(bucket),
+		}, func(page *s3.ListObjectsV2Output, last bool) bool {
+			for _, o := range page.Contents {
+				key, _ := strconv.ParseInt(*o.Key, 10, 64)
+				if finished {
+					Delete(key)
+					continue
+				}
+				if lastKey != -1 && key != lastKey+1 {
+					finished = true
+					continue
+				}
+				lastKey = key
+				if *o.Size == 0 {
+					continue
+				}
+				headerSize := (*o.Size / 512) * 16
+				rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
+				buf := make([]byte, headerSize)
+				Download(key, &buf, &rng)
+				FnHeaderToMap(&buf, key, *o.Size)
 			}
-			if lastKey != -1 && key != lastKey+1 {
-				finished = true
-				continue
-			}
-			lastKey = key
-			if *o.Size == 0 {
-				continue
-			}
-			headerSize := (*o.Size / 512) * 16
-			rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
-			buf := make([]byte, headerSize)
-			Download(key, &buf, &rng)
-			FnHeaderToMap(&buf, key, *o.Size)
+			return true
+		})
+		if err != nil {
+			panic(err)
 		}
-		return true
-	})
-	if err != nil {
-		panic(err)
+	} else {
+		_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
+		if err != nil {
+			panic(err)
+		}
+		err = client.WaitUntilBucketExists(&s3.HeadBucketInput{Bucket: &bucket})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
