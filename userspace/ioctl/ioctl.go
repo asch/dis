@@ -23,6 +23,7 @@ func Init() {
 	v := parser.Sub(configSection)
 	v.SetEnvPrefix(envPrefix)
 	v.BindEnv("ctl")
+	v.BindEnv("extents")
 	ctl = v.GetString("ctl")
 	n = v.GetInt("extents")
 

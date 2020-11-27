@@ -49,6 +49,7 @@ export DIS_BACKEND_OBJECT_S3_REGION="us-east-1"
 export DIS_BACKEND_OBJECT_S3_REMOTE="http://192.168.122.1:9000"
 export DIS_BACKEND_OBJECT_RADOS_POOL="ec-pool"
 export DIS_IOCTL_CTL=/dev/disbd/disa
+export DIS_IOCTL_EXTENTS=128
 export AWS_ACCESS_KEY_ID="Server-Access-Key"
 export AWS_SECRET_ACCESS_KEY="Server-Secret-Key"
 
