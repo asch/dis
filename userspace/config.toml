@@ -19,6 +19,9 @@ enabled = "object"
     [backend.file]
     file = "store.raw"
 
+    [backend.object]
+    api = "s3"
+
     [backend.object.s3]
     bucket = "dis"
     region = "us-east-1"

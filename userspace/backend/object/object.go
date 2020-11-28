@@ -23,6 +23,7 @@ var (
 	em        *extmap.ExtentMap
 	workloads chan *[]extent.Extent
 	seqNumber int64
+	api       string
 )
 
 type ObjectBackend struct{}
@@ -30,6 +31,13 @@ type ObjectBackend struct{}
 func (this *ObjectBackend) Init() {
 	v := parser.Sub(configSection)
 	v.SetEnvPrefix(envPrefix)
+
+	v.BindEnv("api")
+	api = v.GetString("api")
+
+	if api == "" {
+		panic("")
+	}
 
 	em = extmap.New()
 	s3.FnHeaderToMap = func(header *[]byte, key, size int64) {
