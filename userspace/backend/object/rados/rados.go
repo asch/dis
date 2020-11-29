@@ -68,13 +68,16 @@ func Upload(key int64, buf *[]byte) {
 	go func() { ioctx.Destroy() }()
 }
 
-func Download(key int64, buf *[]byte, offset uint64) {
+func Download(key int64, buf *[]byte, from, to int64) {
+	if to-from+1 != int64(len(*buf)) {
+		panic("")
+	}
 	ioctx, err := conn.OpenIOContext(pool)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = ioctx.Read(fmt.Sprintf(keyFmt, key), *buf, offset)
+	_, err = ioctx.Read(fmt.Sprintf(keyFmt, key), *buf, uint64(from))
 	if err != nil {
 		panic(err)
 	}

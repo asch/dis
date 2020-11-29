@@ -6,7 +6,6 @@ import (
 	"dis/cache"
 	"dis/extent"
 	"dis/l2cache"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -22,8 +21,7 @@ var (
 )
 
 func partDownload(e *extmap.Extent, slice *[]byte) {
-	rng := fmt.Sprintf("bytes=%d-%d", e.PBA*512, (e.PBA+e.Len)*512-1)
-	s3.Download(e.Key, slice, &rng)
+	s3.Download(e.Key, slice, e.PBA*512, (e.PBA+e.Len)*512-1)
 }
 
 type cacheWriteJob struct {
@@ -42,17 +40,12 @@ func fillPartFromChunk(slice []byte, chunkI int64, chunkTo, chunkFrom int64, wg 
 		return key*1000 + chunk
 	}
 
-	oneChunk := func(i int64) *string {
-		rng := fmt.Sprintf("bytes=%d-%d", i*l2cache.ChunkSize, i*l2cache.ChunkSize+l2cache.ChunkSize-1)
-		return &rng
-	}
-
 	cacheKey := id(key, chunkI)
 again:
 	chunk, ok := l2cache.GetOrReserveChunk(cacheKey)
 	if !ok {
 		buf := make([]byte, l2cache.ChunkSize)
-		s3.Download(key, &buf, oneChunk(chunkI))
+		s3.Download(key, &buf, chunkI*l2cache.ChunkSize, chunkI*l2cache.ChunkSize+l2cache.ChunkSize-1)
 		l2cache.PutChunk(cacheKey, &buf)
 		chunk = &buf
 	} else if chunk == nil {
@@ -99,7 +92,8 @@ func cacheWriteWorker(jobs <-chan cacheWriteJob) {
 				continue
 			}
 			s := (e.LBA - job.e.LBA) * 512
-			slice := buf[s:]
+			ss := s + e.Len*512
+			slice := buf[s:ss]
 			s3reads.Add(1)
 			downloadChan <- downloadJob{e, &slice, s3reads}
 		}

@@ -59,12 +59,16 @@ func Upload(key int64, buf *[]byte) {
 	}
 }
 
-func Download(key int64, buf *[]byte, rng *string) {
+func Download(key int64, buf *[]byte, from, to int64) {
+	if to-from+1 != int64(len(*buf)) {
+		panic("")
+	}
+	rng := fmt.Sprintf("bytes=%d-%d", from, to)
 	b := aws.NewWriteAtBuffer(*buf)
 	_, err := downloader.Download(b, &s3.GetObjectInput{
 		Bucket: &bucket,
 		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
-		Range:  rng,
+		Range:  &rng,
 	})
 	if err != nil {
 		panic(err)
@@ -162,9 +166,8 @@ func connect() {
 					continue
 				}
 				headerSize := (*o.Size / 512) * 16
-				rng := fmt.Sprintf("bytes=0-%d", headerSize+1)
 				buf := make([]byte, headerSize)
-				Download(key, &buf, &rng)
+				Download(key, &buf, 0, headerSize-1)
 				FnHeaderToMap(&buf, key, *o.Size)
 			}
 			return true
