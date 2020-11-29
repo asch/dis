@@ -3,7 +3,6 @@ package object
 import (
 	"dis/backend/object/extmap"
 	"dis/backend/object/gc"
-	"dis/backend/object/s3"
 	"dis/cache"
 	"dis/extent"
 	"encoding/binary"
@@ -125,7 +124,7 @@ func writer() {
 			for u := range uploadChan {
 				*u.buf = (*u.buf)[:cap(*u.buf)]
 				u.reads.Wait()
-				s3.Upload(u.key, u.buf)
+				uploadF(u.key, u.buf)
 				mutex.Lock()
 				delete(uploading, u.key)
 				mutex.Unlock()

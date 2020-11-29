@@ -2,7 +2,6 @@ package object
 
 import (
 	"dis/backend/object/extmap"
-	"dis/backend/object/s3"
 	"dis/cache"
 	"dis/extent"
 	"dis/l2cache"
@@ -21,7 +20,7 @@ var (
 )
 
 func partDownload(e *extmap.Extent, slice *[]byte) {
-	s3.Download(e.Key, slice, e.PBA*512, (e.PBA+e.Len)*512-1)
+	downloadF(e.Key, slice, e.PBA*512, (e.PBA+e.Len)*512-1)
 }
 
 type cacheWriteJob struct {
@@ -45,7 +44,7 @@ again:
 	chunk, ok := l2cache.GetOrReserveChunk(cacheKey)
 	if !ok {
 		buf := make([]byte, l2cache.ChunkSize)
-		s3.Download(key, &buf, chunkI*l2cache.ChunkSize, chunkI*l2cache.ChunkSize+l2cache.ChunkSize-1)
+		downloadF(key, &buf, chunkI*l2cache.ChunkSize, chunkI*l2cache.ChunkSize+l2cache.ChunkSize-1)
 		l2cache.PutChunk(cacheKey, &buf)
 		chunk = &buf
 	} else if chunk == nil {

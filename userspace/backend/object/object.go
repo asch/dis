@@ -3,6 +3,7 @@ package object
 import (
 	"dis/backend/object/extmap"
 	"dis/backend/object/gc"
+	"dis/backend/object/rados"
 	"dis/backend/object/s3"
 	"dis/extent"
 	"dis/parser"
@@ -24,6 +25,8 @@ var (
 	workloads chan *[]extent.Extent
 	seqNumber int64
 	api       string
+	uploadF   func(key int64, buf *[]byte)
+	downloadF func(key int64, buf *[]byte, from, to int64)
 )
 
 type ObjectBackend struct{}
@@ -35,7 +38,13 @@ func (this *ObjectBackend) Init() {
 	v.BindEnv("api")
 	api = v.GetString("api")
 
-	if api == "" {
+	if api == "s3" {
+		uploadF = s3.Upload
+		downloadF = s3.Download
+	} else if api == "rados" {
+		uploadF = rados.Upload
+		downloadF = rados.Download
+	} else {
 		panic("")
 	}
 
