@@ -3,7 +3,7 @@ package object
 import (
 	"dis/backend/object/extmap"
 	"dis/backend/object/gc"
-	"dis/backend/object/s3"
+	"dis/backend/object/api/s3"
 	"fmt"
 	"sync"
 	"time"
