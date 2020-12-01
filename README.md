@@ -1,4 +1,4 @@
-# DIS: Discs over Immutable Storage
+# DIS: blockDevice over Immutable Storage
 
 ## Description
 
