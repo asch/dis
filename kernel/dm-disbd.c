@@ -693,6 +693,19 @@ static int dis_map(struct dm_target *ti, struct bio *bio)
 	}
 }
 
+static void purge_map(struct disbd *dis, enum map_type map)
+{
+	struct rb_root *root = (map == MAP_WRITE) ? &dis->rb_w : &dis->rb_r;
+	struct rb_node *node = rb_first(root);
+	while (node) {
+		struct rb_node *tmp = rb_next(node);
+		struct extent *e = container_of(node, struct extent, rb);
+		rb_erase(node, root);
+		mempool_free(e, dis->extent_pool);
+		node = tmp;
+	}
+}
+
 static void dis_dtr(struct dm_target *ti)
 {
 	struct disbd *dis = ti->private;
@@ -700,6 +713,9 @@ static void dis_dtr(struct dm_target *ti)
 	ti->private = NULL;
 
 	misc_deregister(&dis->misc);
+	purge_map(dis, MAP_READ);
+	purge_map(dis, MAP_WRITE);
+
 	mempool_destroy(dis->extent_pool);
 	mempool_destroy(dis->page_pool);
 	bioset_exit(&dis->bs);
