@@ -1,10 +1,10 @@
 package object
 
 import (
-	"dis/backend/object/extmap"
-	"dis/backend/object/gc"
 	"dis/backend/object/api/rados"
 	"dis/backend/object/api/s3"
+	"dis/backend/object/extmap"
+	"dis/backend/object/gc"
 	"dis/extent"
 	"dis/parser"
 	"encoding/binary"
