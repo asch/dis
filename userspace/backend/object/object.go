@@ -38,37 +38,38 @@ func (this *ObjectBackend) Init() {
 	v.BindEnv("api")
 	api = v.GetString("api")
 
+	em = extmap.New()
+
 	if api == "s3" {
 		uploadF = s3.Upload
 		downloadF = s3.Download
+		s3.FnHeaderToMap = func(header *[]byte, key, size int64) {
+			atomic.StoreInt64(&seqNumber, key+1)
+			const int64Size = 8
+			var blocks int64 = (writelistLen * 16) / 512
+
+			gc.Create(key, size/512)
+			for i := 0; i < len(*header); i += 2 * int64Size {
+				var e extmap.Extent
+				e.Key = key
+				e.PBA = blocks
+				e.LBA, _ = binary.Varint((*header)[i : i+int64Size])
+				e.Len, _ = binary.Varint((*header)[i+int64Size : i+2*int64Size])
+				if e.Len == 0 {
+					break
+				}
+				em.UpdateSingle(&e)
+				blocks += e.Len
+			}
+		}
+		s3.Init()
 	} else if api == "rados" {
 		uploadF = rados.Upload
 		downloadF = rados.Download
+		rados.Init()
 	} else {
 		panic("")
 	}
-
-	em = extmap.New()
-	s3.FnHeaderToMap = func(header *[]byte, key, size int64) {
-		atomic.StoreInt64(&seqNumber, key+1)
-		const int64Size = 8
-		var blocks int64 = (writelistLen * 16) / 512
-
-		gc.Create(key, size/512)
-		for i := 0; i < len(*header); i += 2 * int64Size {
-			var e extmap.Extent
-			e.Key = key
-			e.PBA = blocks
-			e.LBA, _ = binary.Varint((*header)[i : i+int64Size])
-			e.Len, _ = binary.Varint((*header)[i+int64Size : i+2*int64Size])
-			if e.Len == 0 {
-				break
-			}
-			em.UpdateSingle(&e)
-			blocks += e.Len
-		}
-	}
-	s3.Init()
 
 	workloads = make(chan *[]extent.Extent)
 	go writer()
