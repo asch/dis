@@ -1,11 +1,14 @@
 package gc
 
 import (
+	"github.com/emirpasic/gods/trees/redblacktree"
+	"github.com/emirpasic/gods/utils"
 	"sync"
 	"sync/atomic"
 )
 
-const ratio = 0.6
+const ratio = 0.2
+const threshold = 1024 * 1024 * 64
 
 var (
 	mutex   sync.RWMutex
@@ -48,7 +51,34 @@ func Destroy(key int64) {
 	delete(usage, key)
 }
 
-func GetPurgeSet() *map[int64]bool {
+func GetPurgeSetGreedy() *map[int64]bool {
+	t := redblacktree.NewWith(func(a, b interface{}) int {
+		return -utils.Int64Comparator(a, b)
+	})
+	purgeSet := map[int64]bool{}
+
+	mutex.RLock()
+	for k, v := range usage {
+		free := v.total - v.used
+		t.Put(free, k)
+	}
+	mutex.RUnlock()
+
+	var freeTotal int64
+	it := t.Iterator()
+	for it.Next() {
+		k := it.Value().(int64)
+		purgeSet[k] = true
+		freeTotal += it.Key().(int64)
+		if freeTotal >= threshold {
+			break
+		}
+	}
+
+	return &purgeSet
+}
+
+func GetPurgeSetUniform() *map[int64]bool {
 	purgeSet := map[int64]bool{}
 
 	mutex.RLock()

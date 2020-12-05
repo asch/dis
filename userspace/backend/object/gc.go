@@ -56,7 +56,7 @@ func gcthread() {
 		gc.Running.Lock()
 		em.RLock()
 		fmt.Println("GC Started")
-		purgeSet := gc.GetPurgeSet()
+		purgeSet := gc.GetPurgeSetUniform()
 		fmt.Println("Objects viable for GC: ", len(*purgeSet))
 		wl := em.GenerateWritelist(purgeSet)
 		newPBAs := make([]int64, len(*wl))
