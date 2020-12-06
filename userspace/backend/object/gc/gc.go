@@ -8,12 +8,14 @@ import (
 )
 
 const ratio = 0.2
-const maxCopied = 1024 * 1024 * 32
+const gcTarget = 0.3
 
 var (
 	mutex   sync.RWMutex
 	usage   = make(map[int64]*objectUsage)
 	Running = new(sync.Mutex)
+	total   int64
+	valid   int64
 )
 
 type objectUsage struct {
@@ -27,6 +29,7 @@ func Free(key, size int64) {
 	mutex.RUnlock()
 
 	atomic.AddInt64(&o.used, -size)
+	atomic.AddInt64(&valid, -size)
 }
 
 func Add(key, size int64) {
@@ -35,6 +38,8 @@ func Add(key, size int64) {
 	mutex.RUnlock()
 
 	atomic.AddInt64(&o.used, size)
+	atomic.AddInt64(&total, size)
+	atomic.AddInt64(&valid, size)
 }
 
 func Create(key, total int64) {
@@ -48,26 +53,48 @@ func Destroy(key int64) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	o := usage[key]
+
+	atomic.AddInt64(&valid, -o.used)
+	atomic.AddInt64(&total, -o.total)
 	delete(usage, key)
 }
 
+func Needed() bool {
+	total := atomic.LoadInt64(&total)
+	valid := atomic.LoadInt64(&valid)
+	garbage := total - valid
+
+	if float64(garbage)/float64(total) >= gcTarget {
+		return true
+	}
+	return false
+}
+
 func GetPurgeSetGreedy() *map[int64]bool {
-	t := redblacktree.NewWith(utils.Int64Comparator)
+	t := redblacktree.NewWith(func(a, b interface{}) int {
+		return -utils.Int64Comparator(a, b)
+	})
+
 	purgeSet := map[int64]bool{}
 
 	mutex.RLock()
 	for k, v := range usage {
-		t.Put(v.used, k)
+		t.Put(v.total-v.used, k)
 	}
 	mutex.RUnlock()
 
-	var toCopy int64
+	total := atomic.LoadInt64(&total)
+	valid := atomic.LoadInt64(&valid)
+	invalid := total - valid
+	toCollect := float64(invalid) - gcTarget*float64(total)
 	it := t.Iterator()
 	for it.Next() {
 		k := it.Value().(int64)
 		purgeSet[k] = true
-		toCopy += it.Key().(int64)
-		if toCopy >= maxCopied {
+		invalid := it.Key().(int64)
+		toCollect -= float64(invalid)
+		if toCollect < 0 {
 			break
 		}
 	}

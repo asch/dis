@@ -50,13 +50,16 @@ func getUploadChan() (chan *Object, *sync.WaitGroup) {
 }
 
 func gcthread() {
-	const gcPeriod = 120 * time.Second
+	const gcPeriod = 5 * time.Second
 	for {
 		time.Sleep(gcPeriod)
+		if !gc.Needed() {
+			continue
+		}
 		gc.Running.Lock()
 		em.RLock()
 		fmt.Println("GC Started")
-		purgeSet := gc.GetPurgeSetUniform()
+		purgeSet := gc.GetPurgeSetGreedy()
 		fmt.Println("Objects viable for GC: ", len(*purgeSet))
 		wl := em.GenerateWritelist(purgeSet)
 		newPBAs := make([]int64, len(*wl))
