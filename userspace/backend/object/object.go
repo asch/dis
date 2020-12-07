@@ -105,4 +105,14 @@ func (this *ObjectBackend) Init() {
 	}
 
 	go gcthread()
+	go func() {
+		if gcMode != "on" && gcMode != "statsOnly" {
+			return
+		}
+		const delaySec = 5
+		for {
+			gc.PrintStats(delaySec)
+			time.Sleep(delaySec * time.Second)
+		}
+	}()
 }

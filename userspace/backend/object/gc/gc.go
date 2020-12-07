@@ -62,14 +62,20 @@ func Destroy(key int64) {
 	delete(usage, key)
 }
 
-func Needed() bool {
+func PrintStats(delay int64) {
 	total := atomic.LoadInt64(&total)
 	valid := atomic.LoadInt64(&valid)
 	garbage := total - valid
 
-	fmt.Println("total:", total, "valid:", valid, "garbage:", garbage, "ratio:", float64(garbage)/float64(total))
-	fmt.Printf("GC: %v,%v,%v,%v,%v\n",statcnt,total,valid,garbage,float64(garbage)/float64(total))
-	statcnt += 5
+	fmt.Printf("GC: %v,%v,%v,%v,%v\n",statcnt, total, valid, garbage, float64(garbage)/float64(total))
+
+	statcnt += delay
+}
+
+func Needed() bool {
+	total := atomic.LoadInt64(&total)
+	valid := atomic.LoadInt64(&valid)
+	garbage := total - valid
 
 	if float64(garbage)/float64(total) >= gcTarget {
 		return true
