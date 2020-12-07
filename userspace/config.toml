@@ -21,6 +21,7 @@ enabled = "object"
 
     [backend.object]
     api = "s3"
+    gcMode = "on" # on | silent | off | statsOnly
 
     [backend.object.s3]
     bucket = "dis"

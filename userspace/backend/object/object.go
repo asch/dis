@@ -25,6 +25,7 @@ var (
 	workloads chan *[]extent.Extent
 	seqNumber int64
 	api       string
+	gcMode	  string
 	uploadF   func(key int64, buf *[]byte)
 	downloadF func(key int64, buf *[]byte, from, to int64)
 )
@@ -36,7 +37,13 @@ func (this *ObjectBackend) Init() {
 	v.SetEnvPrefix(envPrefix)
 
 	v.BindEnv("api")
+	v.BindEnv("gcMode")
 	api = v.GetString("api")
+	gcMode = v.GetString("gcMode")
+
+	if gcMode != "on" && gcMode != "statsOnly" && gcMode != "off" && gcMode != "silent" {
+		panic("")
+	}
 
 	em = extmap.New()
 
@@ -97,5 +104,5 @@ func (this *ObjectBackend) Init() {
 		}()
 	}
 
-	//go gcthread()
+	go gcthread()
 }

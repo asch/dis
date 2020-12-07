@@ -50,10 +50,16 @@ func getUploadChan() (chan *Object, *sync.WaitGroup) {
 }
 
 func gcthread() {
+	if gcMode == "off" {
+		return
+	}
 	const gcPeriod = 5 * time.Second
 	for {
 		time.Sleep(gcPeriod)
 		if !gc.Needed() {
+			continue
+		}
+		if gcMode == "statsOnly" {
 			continue
 		}
 		gc.Running.Lock()
