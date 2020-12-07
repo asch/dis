@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"os"
 	"strconv"
+	"time"
 )
 
 const (
@@ -49,11 +50,18 @@ func Init() {
 const keyFmt = "%08d"
 
 func Upload(key int64, buf *[]byte) {
-	_, err := uploader.Upload(&s3manager.UploadInput{
-		Bucket: &bucket,
-		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
-		Body:   bytes.NewReader(*buf),
-	})
+	var err error
+	for i := 0; i < 5; i++ {
+		_, err = uploader.Upload(&s3manager.UploadInput{
+			Bucket: &bucket,
+			Key:    aws.String(fmt.Sprintf(keyFmt, key)),
+			Body:   bytes.NewReader(*buf),
+		})
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -65,11 +73,18 @@ func Download(key int64, buf *[]byte, from, to int64) {
 	}
 	rng := fmt.Sprintf("bytes=%d-%d", from, to)
 	b := aws.NewWriteAtBuffer(*buf)
-	_, err := downloader.Download(b, &s3.GetObjectInput{
-		Bucket: &bucket,
-		Key:    aws.String(fmt.Sprintf(keyFmt, key)),
-		Range:  &rng,
-	})
+	var err error
+	for i := 0; i < 5; i++ {
+		_, err = downloader.Download(b, &s3.GetObjectInput{
+			Bucket: &bucket,
+			Key:    aws.String(fmt.Sprintf(keyFmt, key)),
+			Range:  &rng,
+		})
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 	if err != nil {
 		panic(err)
 	}
