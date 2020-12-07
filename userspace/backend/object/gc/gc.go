@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"fmt"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
 	"sync"
@@ -16,6 +17,7 @@ var (
 	Running = new(sync.Mutex)
 	total   int64
 	valid   int64
+	statcnt int64
 )
 
 type objectUsage struct {
@@ -65,6 +67,10 @@ func Needed() bool {
 	valid := atomic.LoadInt64(&valid)
 	garbage := total - valid
 
+	fmt.Println("total:", total, "valid:", valid, "garbage:", garbage, "ratio:", float64(garbage)/float64(total))
+	fmt.Printf("GC: %v,%v,%v,%v,%v\n",statcnt,total,valid,garbage,float64(garbage)/float64(total))
+	statcnt += 5
+
 	if float64(garbage)/float64(total) >= gcTarget {
 		return true
 	}
@@ -88,6 +94,7 @@ func GetPurgeSetGreedy() *map[int64]bool {
 	valid := atomic.LoadInt64(&valid)
 	invalid := total - valid
 	toCollect := float64(invalid) - gcTarget*float64(total)
+
 	it := t.Iterator()
 	for it.Next() {
 		k := it.Value().(int64)
