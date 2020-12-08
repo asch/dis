@@ -172,7 +172,7 @@ func writer() {
 				allReads.Add(1)
 				cacheReadChan <- cacheReadJob{e, &slice, o.reads, &allReads}
 			}
-			allReads.Wait()
+			//allReads.Wait()
 		case <-ticker.C:
 			upload()
 		}
