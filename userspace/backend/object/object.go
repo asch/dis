@@ -110,6 +110,8 @@ func (this *ObjectBackend) Init() {
 		if gcMode != "on" && gcMode != "statsOnly" {
 			return
 		}
+
+		fmt.Println("STATS: time,total,valid,invalid,ratio,gcmode")
 		const delaySec = 5
 		for {
 			gc.PrintStats(delaySec, gcMode)
