@@ -62,12 +62,12 @@ func Destroy(key int64) {
 	delete(usage, key)
 }
 
-func PrintStats(delay int64) {
+func PrintStats(delay int64, gcMode string) {
 	total := atomic.LoadInt64(&total)
 	valid := atomic.LoadInt64(&valid)
 	garbage := total - valid
 
-	fmt.Printf("GC: %v,%v,%v,%v,%v\n",statcnt, total, valid, garbage, float64(garbage)/float64(total))
+	fmt.Printf("STATS: %v,%v,%v,%v,%v,%v\n", statcnt, total, valid, garbage, float64(garbage)/float64(total), gcMode)
 
 	statcnt += delay
 }

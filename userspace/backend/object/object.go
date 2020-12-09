@@ -8,6 +8,7 @@ import (
 	"dis/extent"
 	"dis/parser"
 	"encoding/binary"
+	"fmt"
 	"sync/atomic"
 	"time"
 )
@@ -25,7 +26,7 @@ var (
 	workloads chan *[]extent.Extent
 	seqNumber int64
 	api       string
-	gcMode	  string
+	gcMode    string
 	uploadF   func(key int64, buf *[]byte)
 	downloadF func(key int64, buf *[]byte, from, to int64)
 )
@@ -111,7 +112,7 @@ func (this *ObjectBackend) Init() {
 		}
 		const delaySec = 5
 		for {
-			gc.PrintStats(delaySec)
+			gc.PrintStats(delaySec, gcMode)
 			time.Sleep(delaySec * time.Second)
 		}
 	}()
