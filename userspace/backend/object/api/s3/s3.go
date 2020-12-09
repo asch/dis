@@ -191,7 +191,14 @@ func connect() {
 			panic(err)
 		}
 	} else {
-		_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
+		var err error
+		for i := 0; i < 200; i++ {
+			_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
+			if err == nil {
+				break
+			}
+			time.Sleep(time.Duration(i) * time.Millisecond)
+		}
 		if err != nil {
 			panic(err)
 		}
