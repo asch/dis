@@ -51,7 +51,7 @@ const keyFmt = "%08d"
 
 func Upload(key int64, buf *[]byte) {
 	var err error
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 200; i++ {
 		_, err = uploader.Upload(&s3manager.UploadInput{
 			Bucket: &bucket,
 			Key:    aws.String(fmt.Sprintf(keyFmt, key)),
@@ -74,7 +74,7 @@ func Download(key int64, buf *[]byte, from, to int64) {
 	rng := fmt.Sprintf("bytes=%d-%d", from, to)
 	b := aws.NewWriteAtBuffer(*buf)
 	var err error
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 200; i++ {
 		_, err = downloader.Download(b, &s3.GetObjectInput{
 			Bucket: &bucket,
 			Key:    aws.String(fmt.Sprintf(keyFmt, key)),
