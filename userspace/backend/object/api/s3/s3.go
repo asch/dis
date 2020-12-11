@@ -60,7 +60,7 @@ func Upload(key int64, buf *[]byte) {
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Duration(i) * time.Millisecond)
 	}
 	if err != nil {
 		panic(err)
@@ -83,7 +83,7 @@ func Download(key int64, buf *[]byte, from, to int64) {
 		if err == nil {
 			break
 		}
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Duration(i) * time.Millisecond)
 	}
 	if err != nil {
 		panic(err)
