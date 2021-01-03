@@ -69,7 +69,8 @@ func (this *Object) size() int64 {
 func (this *Object) assignKey() {
 	this.key = atomic.LoadInt64(&seqNumber)
 	atomic.AddInt64(&seqNumber, 1)
-	gc.Create(this.key, this.blocks)
+	var headerBlocks int64 = (writelistLen * 16) / 512
+	gc.Create(this.key, this.blocks-headerBlocks)
 
 	for _, e := range *this.writelist {
 		e.Key = this.key
