@@ -2,6 +2,7 @@ package backend
 
 import (
 	"dis/backend/file"
+	"dis/backend/null"
 	"dis/backend/object"
 	"dis/extent"
 	"dis/parser"
@@ -19,6 +20,7 @@ var (
 
 	backendMap = map[string]reflect.Type{
 		"file":   reflect.TypeOf(file.FileBackend{}),
+		"null":   reflect.TypeOf(null.NullBackend{}),
 		"object": reflect.TypeOf(object.ObjectBackend{}),
 	}
 )
