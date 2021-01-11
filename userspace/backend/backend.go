@@ -32,6 +32,7 @@ type backend interface {
 func Init() {
 	v := parser.Sub(configSection)
 	v.SetEnvPrefix(envPrefix)
+	v.BindEnv("enabled")
 	enabled = v.GetString("enabled")
 
 	T := backendMap[enabled]
