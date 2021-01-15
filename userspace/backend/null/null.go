@@ -1,9 +1,11 @@
 package null
 
 import (
+	"dis/cache"
 	"dis/extent"
 	"dis/parser"
 	"fmt"
+	"sync"
 )
 
 const (
@@ -31,7 +33,19 @@ func (this *NullBackend) Write(extents *[]extent.Extent) {
 	if skipReadInWritePath {
 		return
 	}
-	fmt.Println("NullBackend.Write()")
+
+	var wg sync.WaitGroup
+
+	for i := range *extents {
+		e := &(*extents)[i]
+		wg.Add(1)
+		go func() {
+			buffer := make([]byte, e.Len*512)
+			cache.Read(&buffer, e.PBA*512)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
 
 func (this *NullBackend) Read(extents *[]extent.Extent) {
