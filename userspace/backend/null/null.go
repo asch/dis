@@ -15,6 +15,7 @@ const (
 
 var (
 	skipReadInWritePath bool
+	waitForIoctlRound   bool
 )
 
 type NullBackend struct{}
@@ -24,9 +25,9 @@ func (this *NullBackend) Init() {
 	v.SetEnvPrefix(envPrefix)
 
 	v.BindEnv("skipReadInWritePath")
+	v.BindEnv("waitForIoctlRound")
 	skipReadInWritePath = v.GetBool("skipReadInWritePath")
-
-	fmt.Println("NullBackend.Init()")
+	waitForIoctlRound = v.GetBool("waitForIoctlRound")
 }
 
 func (this *NullBackend) Write(extents *[]extent.Extent) {
@@ -45,7 +46,10 @@ func (this *NullBackend) Write(extents *[]extent.Extent) {
 			wg.Done()
 		}()
 	}
-	wg.Wait()
+
+	if waitForIoctlRound {
+		wg.Wait()
+	}
 }
 
 func (this *NullBackend) Read(extents *[]extent.Extent) {
