@@ -30,3 +30,7 @@ enabled = "object"
 
     [backend.object.rados]
     pool = "ec-pool"
+
+    [backend.null]
+    skipReadInWritePath = false
+    waitForIoctlRound = true
