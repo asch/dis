@@ -38,23 +38,24 @@ func (this *FileBackend) Init() {
 }
 
 func (this *FileBackend) Write(extents *[]extent.Extent) {
-	var reads sync.WaitGroup
 	bufs := make(map[*extent.Extent]*[]byte)
 
+	var reads sync.WaitGroup
+	reads.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
 		buf := make([]byte, e.Len*512)
 		bufs[e] = &buf
 
-		reads.Add(1)
 		go func() {
 			cache.Read(&buf, e.PBA*512)
 			reads.Done()
 		}()
 	}
-
 	reads.Wait()
 
+	var writes sync.WaitGroup
+	writes.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
 		buf := bufs[e]
@@ -63,18 +64,19 @@ func (this *FileBackend) Write(extents *[]extent.Extent) {
 			if err != nil {
 				panic(err)
 			}
+			writes.Done()
 		}()
 	}
+	writes.Wait()
 }
 
 func (this *FileBackend) Read(extents *[]extent.Extent) {
 	var reads sync.WaitGroup
-
+	reads.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
 		cache.Reserve(e)
 
-		reads.Add(1)
 		go func() {
 			buf := make([]byte, e.Len*512)
 			_, err := unix.Pread(fd, buf, e.LBA*512)
