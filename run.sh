@@ -43,6 +43,7 @@ export DIS_L2CACHE_BASE=$cache_sectors
 export DIS_L2CACHE_BOUND=$((cache_sectors + l2cache_sectors))
 export DIS_L2CACHE_FILE=$loop
 export DIS_L2CACHE_CHUNKSIZE=$((1024*1024))
+export DIS_BACKEND_ENABLED="object"
 export DIS_BACKEND_FILE_FILE=$store_path
 export DIS_BACKEND_OBJECT_API="s3"
 export DIS_BACKEND_OBJECT_GCMODE="on"
