@@ -93,11 +93,17 @@ func (this *ExtentMap) remove(e *Extent) {
 }
 
 func (this *ExtentMap) geq(e *Extent) *Extent {
-	geq, _ := this.rbt.Ceiling(e.LBA)
-	if geq == nil {
-		return nil
+	if f, _ := this.rbt.Floor(e.LBA); f != nil {
+		if fVal := f.Value.(*Extent); fVal.LBA+fVal.Len > e.LBA {
+			return fVal
+		}
 	}
-	return geq.Value.(*Extent)
+
+	if c, _ := this.rbt.Ceiling(e.LBA); c != nil {
+		return c.Value.(*Extent)
+	}
+
+	return nil
 }
 
 func (this *ExtentMap) update(e *Extent) {
