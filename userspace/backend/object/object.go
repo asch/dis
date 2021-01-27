@@ -19,16 +19,18 @@ const (
 )
 
 var (
-	bucket    string
-	region    string
-	remote    string
-	em        *extmap.ExtentMap
-	workloads chan *[]extent.Extent
-	seqNumber int64
-	api       string
-	gcMode    string
-	uploadF   func(key int64, buf *[]byte)
-	downloadF func(key int64, buf *[]byte, from, to int64)
+	bucket      string
+	region      string
+	remote      string
+	em          *extmap.ExtentMap
+	workloads   chan *[]extent.Extent
+	seqNumber   int64
+	api         string
+	gcMode      string
+	objectSizeM int64
+	objectSize  int64
+	uploadF     func(key int64, buf *[]byte)
+	downloadF   func(key int64, buf *[]byte, from, to int64)
 )
 
 type ObjectBackend struct{}
@@ -39,10 +41,13 @@ func (this *ObjectBackend) Init() {
 
 	v.BindEnv("api")
 	v.BindEnv("gcMode")
+	v.BindEnv("objectSizeM")
 	api = v.GetString("api")
 	gcMode = v.GetString("gcMode")
+	objectSizeM = v.GetInt64("objectSizeM")
+	objectSize = objectSizeM * 1024 * 1024
 
-	if gcMode != "on" && gcMode != "statsOnly" && gcMode != "off" && gcMode != "silent" {
+	if gcMode != "on" && gcMode != "statsOnly" && gcMode != "off" && gcMode != "silent" && objectSize == 0 {
 		panic("")
 	}
 

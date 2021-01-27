@@ -11,18 +11,16 @@ import (
 	"time"
 )
 
-const objectSize = 1024 * 1024 * 32
-
 const (
-	uploadWorkers    = 10
-	cacheReadWorkers = 50
-	writelistLen     = objectSize / 512
-	maxWritePeriod   = 1 * time.Second
+	uploadWorkers    = 30
+	cacheReadWorkers = 30
+	maxWritePeriod   = 5 * time.Second
 )
 
 var (
-	mutex     sync.RWMutex
-	uploading = make(map[int64]bool)
+	mutex        sync.RWMutex
+	uploading    = make(map[int64]bool)
+	writelistLen = objectSize / 512
 )
 
 type cacheReadJob struct {
