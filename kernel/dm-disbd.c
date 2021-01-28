@@ -48,6 +48,7 @@ struct disbd {
 	wait_queue_head_t write_wait;
 	int done_count;
 	sector_t done_sectors;
+	sector_t prev_done_sectors;
 	sector_t max_sectors;
 	atomic_t n_undone;
 	atomic_t n_done;
@@ -931,40 +932,14 @@ static int ioctl_write_wait(struct disbd *dis, void *arg)
 	struct list_head tmp_writes;
 	int i = 0;
 
-	if (copy_from_user(&iw, arg, sizeof(iw)))
-		return -EFAULT;
-	extents = iw.extents;
-
-	wait_event_interruptible(dis->write_wait, !list_empty(&dis->done_writes));
-
-	INIT_LIST_HEAD(&tmp_writes);
-
 	spin_lock_irqsave(&dis->lock, flags);
-	for (i = 0; !list_empty(&dis->done_writes) && i < iw.n_extents; i++) {
-		struct write_record *rec =
-			list_first_entry(&dis->done_writes, struct write_record, list);
-		list_del(&rec->list);
-		atomic_dec(&dis->n_done);
-		list_add_tail(&rec->list, &tmp_writes);
-		dis->done_count--;
-		dis->done_sectors -= rec->len;
-	}
-	spin_unlock_irqrestore(&dis->lock, flags);
-
-	for (i = 0; !list_empty(&tmp_writes) && i < iw.n_extents; i++) {
-		struct write_record *rec = list_first_entry(&tmp_writes, struct write_record, list);
-		list_del(&rec->list);
-		struct dis_extent e = { .lba = rec->lba, .pba = rec->pba, .len = rec->len };
-		kfree(rec);
-		if (copy_to_user(extents, &e, sizeof(e))) {
-			return -EFAULT;
-		}
-		extents++;
-	}
+	dis->done_sectors -= dis->prev_done_sectors;
+	dis->prev_done_sectors = 0;
+	//spin_unlock_irqrestore(&dis->lock, flags);
 
 	/* if we free up any stalled bios, grab them here under the lock
 	 */
-	spin_lock_irqsave(&dis->lock, flags);
+	//spin_lock_irqsave(&dis->lock, flags);
 	sector_t n = dis->done_sectors;
 	while (!bio_list_empty(&dis->undone_writes) && n < dis->max_sectors) {
 		struct bio *bio = bio_list_pop(&dis->undone_writes);
@@ -982,6 +957,38 @@ static int ioctl_write_wait(struct disbd *dis, void *arg)
 		struct bio *bio = bio_list_pop(&tmp);
 		//DMINFO("%llu write wait recycle", (u64)bio);
 		map_write_io(dis, bio);
+	}
+
+	if (copy_from_user(&iw, arg, sizeof(iw)))
+		return -EFAULT;
+	extents = iw.extents;
+
+	wait_event_interruptible(dis->write_wait, !list_empty(&dis->done_writes));
+
+	INIT_LIST_HEAD(&tmp_writes);
+
+	spin_lock_irqsave(&dis->lock, flags);
+	for (i = 0; !list_empty(&dis->done_writes) && i < iw.n_extents; i++) {
+		struct write_record *rec =
+			list_first_entry(&dis->done_writes, struct write_record, list);
+		list_del(&rec->list);
+		atomic_dec(&dis->n_done);
+		list_add_tail(&rec->list, &tmp_writes);
+		dis->done_count--;
+		dis->prev_done_sectors += rec->len;
+		//dis->done_sectors -= rec->len;
+	}
+	spin_unlock_irqrestore(&dis->lock, flags);
+
+	for (i = 0; !list_empty(&tmp_writes) && i < iw.n_extents; i++) {
+		struct write_record *rec = list_first_entry(&tmp_writes, struct write_record, list);
+		list_del(&rec->list);
+		struct dis_extent e = { .lba = rec->lba, .pba = rec->pba, .len = rec->len };
+		kfree(rec);
+		if (copy_to_user(extents, &e, sizeof(e))) {
+			return -EFAULT;
+		}
+		extents++;
 	}
 
 	//DMINFO("write_wait: %llu = %d", (u64)arg, i);
