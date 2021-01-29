@@ -36,10 +36,9 @@ func (this *NullBackend) Write(extents *[]extent.Extent) {
 	}
 
 	var wg sync.WaitGroup
-
+	wg.Add(len(*extents))
 	for i := range *extents {
 		e := &(*extents)[i]
-		wg.Add(1)
 		go func() {
 			buffer := make([]byte, e.Len*512)
 			cache.Read(&buffer, e.PBA*512)
