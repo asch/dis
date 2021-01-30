@@ -123,11 +123,11 @@ func connect() {
 	uploader = s3manager.NewUploader(sess)
 	downloader = s3manager.NewDownloader(sess)
 
-	uploader.Concurrency = 32
+	uploader.Concurrency = 1
 	s3manager.WithUploaderRequestOptions(request.Option(func(r *request.Request) {
 		r.HTTPRequest.Header.Add("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 	}))(uploader)
-	downloader.Concurrency = 128
+	downloader.Concurrency = 1
 
 	_, err = client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
 	if err == nil {
