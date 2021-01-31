@@ -6,6 +6,7 @@ import (
 	"dis/ioctl"
 	"dis/l2cache"
 	"dis/parser"
+	"os"
 )
 
 func main() {
@@ -18,6 +19,12 @@ func main() {
 	backend.Init()
 
 	println("Done")
+
+	f, err := os.Create("/tmp/dis_ready")
+	if err != nil {
+		panic(err)
+	}
+	f.Close()
 
 	done := make(chan struct{})
 	go ioctl.Read()
