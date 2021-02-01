@@ -4,7 +4,7 @@ import (
 	"dis/backend"
 	"dis/cache"
 	"dis/ioctl"
-	"dis/l2cache"
+	//"dis/l2cache"
 	"dis/parser"
 	"os"
 )
@@ -14,7 +14,7 @@ func main() {
 
 	parser.Init()
 	cache.Init()
-	l2cache.Init()
+	//l2cache.Init()
 	ioctl.Init()
 	backend.Init()
 
