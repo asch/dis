@@ -20,7 +20,7 @@ const (
 var (
 	mutex        sync.RWMutex
 	uploading    = make(map[int64]bool)
-	writelistLen = objectSize / 512
+	writelistLen int64
 )
 
 type cacheReadJob struct {
@@ -106,6 +106,7 @@ func (o *Object) fillHeader(lba, length int64) {
 }
 
 func writer() {
+	writelistLen = objectSize / 512
 	cacheReadChan := make(chan cacheReadJob)
 	for i := 0; i < cacheReadWorkers; i++ {
 		go func() {
