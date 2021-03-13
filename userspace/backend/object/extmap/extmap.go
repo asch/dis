@@ -112,7 +112,9 @@ func (this *ExtentMap) geq(e *Extent) *redblacktree.Node {
 }
 
 func (this *ExtentMap) update(e *Extent) {
-	if geq := this.geq(e); geq != nil {
+	node := this.geq(e)
+	if node != nil {
+		geq := node.Value.(*Extent)
 		if geq.LBA < e.LBA && geq.LBA+geq.Len > e.LBA+e.Len {
 			n := &Extent{
 				LBA: e.LBA + e.Len,
@@ -127,11 +129,13 @@ func (this *ExtentMap) update(e *Extent) {
 			geq.Len = e.LBA - geq.LBA
 			this.insert(n)
 			geq = n
+			node = this.geq(geq)
 
 		} else if geq.LBA < e.LBA {
 			gc.Free(geq.Key, geq.Len-e.LBA+geq.LBA)
 			geq.Len = e.LBA - geq.LBA
 			geq = this.next(geq)
+			node = this.geq(geq)
 		}
 
 		for geq != nil && geq.LBA+geq.Len <= e.LBA+e.Len {
@@ -139,11 +143,13 @@ func (this *ExtentMap) update(e *Extent) {
 			this.remove(geq)
 			gc.Free(geq.Key, geq.Len)
 			geq = tmp
+			node = this.geq(geq)
 		}
 
 		if geq != nil && e.LBA+e.Len > geq.LBA {
 			n := e.LBA + e.Len - geq.LBA
 			geq.LBA += n
+			node.Key = geq.LBA
 			geq.PBA += n
 			geq.Len -= n
 			gc.Free(geq.Key, n)
