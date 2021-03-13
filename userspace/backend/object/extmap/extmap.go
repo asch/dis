@@ -163,7 +163,11 @@ func (this *ExtentMap) update(e *Extent) {
 func (this *ExtentMap) find(e *Extent) *[]*Extent {
 	l := make([]*Extent, 0, 256)
 	for {
-		geq := this.geq(e)
+		node := this.geq(e)
+		var geq *Extent
+		if node != nil {
+			geq = node.Value.(*Extent)
+		}
 
 		if geq == nil || geq.LBA >= e.LBA+e.Len {
 			if len(l) == cap(l) {
