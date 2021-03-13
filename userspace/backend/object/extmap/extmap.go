@@ -92,15 +92,20 @@ func (this *ExtentMap) remove(e *Extent) {
 	this.rbt.Remove(e.LBA)
 }
 
-func (this *ExtentMap) geq(e *Extent) *Extent {
+func (this *ExtentMap) geq(e *Extent) *redblacktree.Node {
+
+	if e == nil {
+		return nil
+	}
+
 	if f, _ := this.rbt.Floor(e.LBA); f != nil {
 		if fVal := f.Value.(*Extent); fVal.LBA+fVal.Len > e.LBA {
-			return fVal
+			return f
 		}
 	}
 
 	if c, _ := this.rbt.Ceiling(e.LBA); c != nil {
-		return c.Value.(*Extent)
+		return c
 	}
 
 	return nil
