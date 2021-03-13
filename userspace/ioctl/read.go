@@ -20,6 +20,9 @@ func Read() {
 		}
 		backend.Read(extents)
 
+		// FIXME: If the length of read extents in this round makes the
+		// frontier to jump over two octants it fails to clean the
+		// skipped octant.
 		octant := 8 * (cache.Frontier - cache.Base) / (cache.Bound - cache.Base)
 		eight := (cache.Bound - cache.Base) / 8
 
