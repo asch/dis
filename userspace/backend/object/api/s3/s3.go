@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package s3
 
 import (
@@ -133,6 +135,7 @@ func connect() {
 	if err == nil {
 		fmt.Println("Do you want to recover volume from", bucket, "? [Y/n]")
 		yn, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+
 		if yn == "N\n" || yn == "n\n" {
 			err = client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
 				Bucket: &bucket,
@@ -146,14 +149,14 @@ func connect() {
 				panic(err)
 			}
 
-			_, err = client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucket})
-			if err != nil {
-				panic(err)
-			}
-			_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
-			if err != nil {
-				panic(err)
-			}
+			//_, err = client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucket})
+			//if err != nil {
+			//	panic(err)
+			//}
+			//_, err = client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucket})
+			//if err != nil {
+			//	panic(err)
+			//}
 			err = client.WaitUntilBucketExists(&s3.HeadBucketInput{Bucket: &bucket})
 			if err != nil {
 				panic(err)
@@ -202,6 +205,7 @@ func connect() {
 		if err != nil {
 			panic(err)
 		}
+
 		err = client.WaitUntilBucketExists(&s3.HeadBucketInput{Bucket: &bucket})
 		if err != nil {
 			panic(err)

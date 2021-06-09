@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package extmap
 
 import (
@@ -42,6 +44,7 @@ func (this *ExtentMap) UpdateSingle(e *Extent) {
 func (this *ExtentMap) Find(e *extent.Extent) *[]*Extent {
 	this.mutex.RLock()
 	extents := this.find(&Extent{e.LBA, -1, e.Len, -1})
+
 	this.mutex.RUnlock()
 	return extents
 }
@@ -76,7 +79,7 @@ func (this *ExtentMap) GenerateWritelist(purgeList *map[int64]bool) *[]*Extent {
 	return writelist
 }
 
-func (this *ExtentMap) insert(e *Extent) {
+func (this *ExtentMap) insert(e *Extent)  {
 	this.rbt.Put(e.LBA, e)
 }
 
@@ -174,6 +177,7 @@ func (this *ExtentMap) find(e *Extent) *[]*Extent {
 				println("extent list size to small #1")
 			}
 			l = append(l, &Extent{e.LBA, -1, e.Len, -1})
+
 			return &l
 		}
 

@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package object
 
 import (
@@ -7,6 +9,7 @@ import (
 	"dis/l2cache"
 	"sync"
 	"time"
+	//"fmt"
 )
 
 const (
@@ -86,8 +89,12 @@ func cacheWriteWorker(jobs <-chan cacheWriteJob) {
 	for job := range jobs {
 		buf := make([]byte, job.e.Len*512)
 		s3reads := new(sync.WaitGroup)
+
+		//em.RLock()
+
 		for _, e := range *em.Find(job.e) {
 			if e.Key == -1 {
+				//em.Dump()
 				continue
 			}
 			s := (e.LBA - job.e.LBA) * 512
@@ -96,6 +103,9 @@ func cacheWriteWorker(jobs <-chan cacheWriteJob) {
 			s3reads.Add(1)
 			downloadChan <- downloadJob{e, &slice, s3reads}
 		}
+
+		//em.RUnlock()
+
 		s3reads.Wait()
 		cache.Write(&buf, job.e.PBA*512)
 		job.reads.Done()
@@ -111,4 +121,7 @@ func (this *ObjectBackend) Read(extents *[]extent.Extent) {
 		cacheWriteChan <- cacheWriteJob{e, &reads}
 	}
 	reads.Wait()
+	//e := extent.Extent{296, -1, 8}
+	//r := *em.Find(&e)
+	//fmt.Println("XXX:", *r[0])
 }

@@ -1,4 +1,6 @@
-#/bin/bash
+#!/bin/bash
+# Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 set -euxo pipefail
 
 clean() {
@@ -13,13 +15,15 @@ make -C kernel
 cache_path=$(pwd)/cache.raw
 store_path=$(pwd)/store.raw
 
-cache_size_M=16
+#cache_size_M=1
+cache_size_M=4096
 cache_sectors=$((cache_size_M*1024*1024/512))
 
-l2cache_size_M=256
+l2cache_size_M=8
 l2cache_sectors=$((l2cache_size_M*1024*1024/512))
 
-store_size_M=1024
+#store_size_M=128
+store_size_M=$((10*1024))
 store_sectors=$((store_size_M*1024*1024/512))
 
 sudo insmod kernel/dm-disbd.ko
@@ -30,7 +34,8 @@ rm -f $cache_path && truncate -s $((cache_size_M + l2cache_size_M))M $cache_path
 loop=$(sudo losetup -f --show $cache_path)
 trap clean 0
 
-max_w_ioctl_sectors=$((1024*1024/512))
+max_w_ioctl_sectors=$((420*1024/512))
+#max_w_ioctl_sectors=0
 echo 0 $store_sectors disbd $loop disa 0 $((cache_sectors/2)) $((cache_sectors/2 - max_w_ioctl_sectors)) | sudo dmsetup --noudevsync create disa
 sleep 1
 
@@ -46,15 +51,17 @@ export DIS_L2CACHE_CHUNKSIZE=$((1024*1024))
 export DIS_BACKEND_ENABLED="object"
 export DIS_BACKEND_FILE_FILE=$store_path
 export DIS_BACKEND_OBJECT_API="s3"
+#export DIS_BACKEND_OBJECT_OBJECTSIZEM=4
 export DIS_BACKEND_OBJECT_OBJECTSIZEM=32
 export DIS_BACKEND_OBJECT_GCMODE="off"
-export DIS_BACKEND_OBJECT_S3_BUCKET="dis"
+export DIS_BACKEND_OBJECT_S3_BUCKET="dis2"
 export DIS_BACKEND_OBJECT_S3_REGION="us-east-1"
 export DIS_BACKEND_OBJECT_S3_REMOTE="http://192.168.122.1:9000"
 export DIS_BACKEND_OBJECT_RADOS_POOL="ec-pool"
 export DIS_BACKEND_NULL_SKIPREADINWRITEPATH="false"
 export DIS_BACKEND_NULL_WAITFORIOCTLROUND="true"
 export DIS_IOCTL_CTL=/dev/disbd/disa
+#export DIS_IOCTL_EXTENTS=8
 export DIS_IOCTL_EXTENTS=128
 export AWS_ACCESS_KEY_ID="Server-Access-Key"
 export AWS_SECRET_ACCESS_KEY="Server-Secret-Key"

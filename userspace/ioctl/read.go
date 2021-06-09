@@ -1,12 +1,16 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package ioctl
 
 import (
 	"dis/backend"
 	"dis/cache"
+	"fmt"
 )
 
 func Read() {
 	var nextClean int64
+
 	for {
 		extents := RWIOCTL(readNo())
 		// FIXME: Probable bug in kernel code, sometimes zero-length ioctl set is being sent
@@ -31,6 +35,7 @@ func Read() {
 			clearLO = cache.Base + nextClean*eight
 			clearHI = clearLO + eight
 			nextClean = (nextClean + 1) % 8
+			fmt.Println("Cleaning from ", clearLO, "to ", clearHI)
 		}
 
 		resolveIOCTL(extents, clearLO, clearHI)

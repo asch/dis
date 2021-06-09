@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package rados
 
 import (

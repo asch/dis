@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2016 Peter Desnoyers. All rights reserved.
+ * Copyright (C) 2020 Vojtech Aschenbrenner. All rights reserved.
+ *
+ * This file is released under the GPL.
+ */
+
 #include <linux/slab.h>
 #include <linux/blkdev.h>
 #include <linux/mempool.h>

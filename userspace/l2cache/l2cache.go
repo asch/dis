@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package l2cache
 
 import (
@@ -107,4 +109,14 @@ func readChunk(chunk int64) *[]byte {
 		panic(err)
 	}
 	return &buf
+}
+
+var i int64
+
+func ReadRandChunk(buf *[]byte) {
+	_, err := unix.Pread(fd, *buf, base*512+i*ChunkSize)
+	i = (i + 1) % chunks
+	if err != nil {
+		panic(err)
+	}
 }

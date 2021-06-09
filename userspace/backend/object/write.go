@@ -1,3 +1,5 @@
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 package object
 
 import (
@@ -9,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	//"fmt"
 )
 
 const (
@@ -139,7 +142,6 @@ func writer() {
 		if o.extents == 0 {
 			return
 		}
-		//gc.Running.Wait()
 		gc.Running.Lock()
 		o.assignKey()
 		mutex.Lock()
@@ -163,6 +165,9 @@ func writer() {
 		case extents := <-workloads:
 			for i := range *extents {
 				e := &(*extents)[i]
+
+				//fmt.Println("Writing:", *e)
+
 				if o.size()+e.Len*512 > objectSize || len(ticker.C) > 0 {
 					upload()
 				}
@@ -179,15 +184,15 @@ func writer() {
 	}
 }
 
-func computeSectors(extents *[]extent.Extent) int64 {
-	var sectors int64
-	for i := range *extents {
-		e := &(*extents)[i]
-		sectors += e.Len
-	}
-
-	return sectors
-}
+//func computeSectors(extents *[]extent.Extent) int64 {
+//	var sectors int64
+//	for i := range *extents {
+//		e := &(*extents)[i]
+//		sectors += e.Len
+//	}
+//
+//	return sectors
+//}
 
 //func writer2() {
 //	mapUpdateChan := make(chan *[]*extmap.Extent, mapUpdateBuf)
