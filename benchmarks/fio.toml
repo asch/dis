@@ -1,0 +1,34 @@
+header = 'rw,bs,iodepth,backend,iteration,bw,iops'
+
+rw = [
+	'randwrite',
+	'write',
+	#'read',
+	#'randread',
+]
+
+bs = [
+	'4k',
+	'16k',
+	'64k',
+]
+
+iodepth = [
+	'1',
+	'2',
+	'4',
+	'32',
+]
+
+nooptions = [
+	'group_reporting',
+	'minimal',
+]
+
+[common]
+name           = 'experiment'
+ioengine       = 'libaio'
+direct	       = 1
+refill_buffers = 1
+runtime        = '120s'
+offset         = 0

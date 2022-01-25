@@ -1,0 +1,94 @@
+iterations = [
+	9,
+]
+
+enabled = [
+	'bcache_rbd_ec',
+	'rbd_ec',
+	'dis_rados_ec',
+	'dis_rgw_ec',
+]
+
+benchmarks = [
+	'fio',
+	#'fb',
+]
+
+[dis_rgw_replicated]
+dev = '/dev/mapper/disa'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[dis_rgw_replicated.env]
+	DIS_BACKEND_OBJECT_API = 's3'
+	DIS_BACKEND_OBJECT_S3_REMOTE = 'http://10.0.0.6:80'
+
+[dis_rgw_ec]
+dev = '/dev/mapper/disa'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[dis_rgw_ec.env]
+	DIS_BACKEND_OBJECT_API = 's3'
+	DIS_BACKEND_OBJECT_S3_REMOTE = 'http://10.0.0.6:8080'
+
+[dis_rados_replicated]
+dev = '/dev/mapper/disa'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[dis_rados_replicated.env]
+	DIS_BACKEND_OBJECT_API = 'rados'
+	DIS_BACKEND_OBJECT_RADOS_POOL = 'replicated-pool'
+
+[dis_rados_ec]
+dev = '/dev/mapper/disa'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[dis_rados_ec.env]
+	DIS_BACKEND_OBJECT_API = 'rados'
+	DIS_BACKEND_OBJECT_RADOS_POOL = 'ec-pool'
+
+
+[bcache_rbd_replicated]
+dev = '/dev/bcache0'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[bcache_rbd_replicated.env]
+	RBD_POOL = 'rbd'
+
+[bcache_rbd_ec]
+dev = '/dev/bcache0'
+cache_size_M = [
+	10240,
+	716800,
+	]
+
+	[bcache_rbd_ec.env]
+	RBD_POOL = 'rbd-ec'
+
+[rbd_replicated]
+dev = '/dev/rbd0'
+cache_size_M = [1]
+
+	[rbd_replicated.env]
+	RBD_POOL = 'rbd'
+
+[rbd_ec]
+dev = '/dev/rbd0'
+cache_size_M = [1]
+
+	[rbd_ec.env]
+	RBD_POOL = 'rbd-ec'
