@@ -152,7 +152,7 @@ func gcthread2() {
 		downloader := getDownloadChan()
 
 		// Buffer for downloaded objects
-		var buffer map[int64][]byte
+		buffer := make(map[int64][]byte)
 
 		// WaitGroup for running downloads
 		var wg sync.WaitGroup
