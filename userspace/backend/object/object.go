@@ -29,6 +29,7 @@ var (
 	seqNumber   int64
 	api         string
 	gcMode      string
+	gcVersion   int64
 	objectSizeM int64
 	objectSize  int64
 	uploadF     func(key int64, buf *[]byte)
@@ -43,9 +44,11 @@ func (this *ObjectBackend) Init() {
 
 	v.BindEnv("api")
 	v.BindEnv("gcMode")
+	v.BindEnv("gcVersion")
 	v.BindEnv("objectSizeM")
 	api = v.GetString("api")
 	gcMode = v.GetString("gcMode")
+	gcVersion = v.GetInt64("gcVersion")
 	objectSizeM = v.GetInt64("objectSizeM")
 	objectSize = objectSizeM * 1024 * 1024
 
@@ -112,7 +115,15 @@ func (this *ObjectBackend) Init() {
 		}()
 	}
 
-	go gcthread()
+	switch gcVersion {
+	case 1:
+		go gcthread()
+	case 2:
+		go gcthread2()
+	default:
+		go gcthread()
+	}
+
 	go func() {
 		if gcMode != "on" && gcMode != "statsOnly" {
 			return

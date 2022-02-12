@@ -54,6 +54,12 @@ export DIS_BACKEND_OBJECT_API="s3"
 #export DIS_BACKEND_OBJECT_OBJECTSIZEM=4
 export DIS_BACKEND_OBJECT_OBJECTSIZEM=32
 export DIS_BACKEND_OBJECT_GCMODE="off"
+
+# What gcthread function should be used
+# 1: Old version with range reads
+# 2: New version downloading the whole object first
+export DIS_BACKEND_OBJECT_GCVERSION=2
+
 export DIS_BACKEND_OBJECT_S3_BUCKET="dis2"
 export DIS_BACKEND_OBJECT_S3_REGION="us-east-1"
 export DIS_BACKEND_OBJECT_S3_REMOTE="http://192.168.122.1:9000"
