@@ -1,9 +1,6 @@
-/*
- * Copyright (C) 2016 Peter Desnoyers. All rights reserved.
- * Copyright (C) 2020 Vojtech Aschenbrenner. All rights reserved.
- *
- * This file is released under the GPL.
- */
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2016 Peter Desnoyers
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
 
 #include <linux/slab.h>
 #include <linux/blkdev.h>

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2016 Peter Desnoyers
+// Copyright (C) 2020-2021 Vojtech Aschenbrenner <v@asch.cz>
+
 #ifndef __DISBD_U_H__
 #define __DISBD_U_H__
 
